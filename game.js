@@ -319,18 +319,58 @@ function band(grow, bottomHeight, topHeight, outward, uvLength, mat) {
 }
 
 // Ads on the boards (made-up ones!)
-const adTexture = paintTexture(2048, 256, (ctx, w, h) => {
-  const ads = [["#00539b", "white", "PUPPET HOCKEY"], ["#ffffff", "#0a2a5c", "SAROSH'S SHOOTOUT"],
-               ["#f47d30", "white", "SHOOT HIGH!"], ["#0b1f3a", "#ffe14d", "GO TEAM GO!"]];
-  ads.forEach(([bg, color, text], i) => {
-    ctx.fillStyle = bg; ctx.fillRect(i * 512, 0, 512, h);
-    ctx.fillStyle = color; ctx.font = "900 64px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(text, i * 512 + 256, h / 2, 480);
-    ctx.fillStyle = "rgba(0,0,0,0.15)"; ctx.fillRect(i * 512, 0, 4, h);
+// Made-up brands (real companies own their names, so we invent our own!)
+const adTexture = paintTexture(3072, 256, (ctx, w, h) => {
+  const panel = (i, draw) => { ctx.save(); ctx.translate(i * 512, 0); ctx.beginPath(); ctx.rect(0, 0, 512, h); ctx.clip(); draw(); ctx.restore(); };
+  const text = (t, x, y, font, color, stroke) => {
+    ctx.font = font; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    if (stroke) { ctx.lineWidth = 8; ctx.strokeStyle = stroke; ctx.strokeText(t, x, y, 470); }
+    ctx.fillStyle = color; ctx.fillText(t, x, y, 470);
+  };
+  const gradient = (a, b) => { const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, a); g.addColorStop(1, b); return g; };
+  panel(0, () => {   // ICEBLADE skates
+    ctx.fillStyle = gradient("#1b2b4a", "#08101e"); ctx.fillRect(0, 0, 512, h);
+    text("ICEBLADE", 256, 110, "italic 900 92px Arial", "#dfe7f0");
+    ctx.fillStyle = "#9fb3c8"; ctx.fillRect(70, 168, 372, 8);
+    text("PRO SKATES", 256, 205, "700 34px Arial", "#7fa7d6");
+  });
+  panel(1, () => {   // TOP SHELF PIZZA
+    ctx.fillStyle = gradient("#d7261e", "#a3150f"); ctx.fillRect(0, 0, 512, h);
+    ctx.fillStyle = "#ffcf4a"; ctx.beginPath(); ctx.moveTo(40, 70); ctx.lineTo(130, 70); ctx.lineTo(85, 190); ctx.fill();
+    ctx.fillStyle = "#c0392b"; [[70, 95], [100, 100], [85, 135]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 10, 0, 7); ctx.fill(); });
+    text("TOP SHELF", 300, 100, "900 66px Arial", "#ffcf4a");
+    text("PIZZA", 300, 175, "900 60px Arial", "white");
+  });
+  panel(2, () => {   // SNIPER sticks
+    ctx.fillStyle = "#111215"; ctx.fillRect(0, 0, 512, h);
+    ctx.strokeStyle = "#f47d30"; ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.arc(95, 128, 55, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(95, 55); ctx.lineTo(95, 201); ctx.moveTo(22, 128); ctx.lineTo(168, 128); ctx.stroke();
+    text("SNIPER", 330, 110, "italic 900 88px Arial", "white");
+    text("HOCKEY STICKS", 330, 185, "700 32px Arial", "#f47d30");
+  });
+  panel(3, () => {   // FROSTY COLA
+    ctx.fillStyle = gradient("#5ec8f2", "#1b7fc4"); ctx.fillRect(0, 0, 512, h);
+    ctx.strokeStyle = "white"; ctx.lineWidth = 7;
+    for (let a = 0; a < 6; a++) { ctx.beginPath(); ctx.moveTo(85, 128); ctx.lineTo(85 + Math.cos(a * Math.PI / 3) * 55, 128 + Math.sin(a * Math.PI / 3) * 55); ctx.stroke(); }
+    text("FROSTY", 320, 100, "italic 900 80px Georgia", "white", "#0d4f86");
+    text("COLA", 320, 180, "italic 900 64px Georgia", "#e8f7ff", "#0d4f86");
+  });
+  panel(4, () => {   // PUPPET HOCKEY
+    ctx.fillStyle = gradient("#0b5cb8", "#00396f"); ctx.fillRect(0, 0, 512, h);
+    ctx.fillStyle = "#111"; ctx.beginPath(); ctx.ellipse(256, 200, 70, 18, 0, 0, 7); ctx.fill();
+    text("PUPPET", 256, 70, "900 72px Arial", "white");
+    text("HOCKEY", 256, 140, "900 72px Arial", "#f47d30");
+  });
+  panel(5, () => {   // SAROSH'S SHOOTOUT
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, 512, h);
+    ctx.fillStyle = "#f47d30"; ctx.fillRect(0, 0, 512, 22); ctx.fillRect(0, h - 22, 512, 22);
+    text("SAROSH'S", 256, 95, "900 64px Arial", "#0a2a5c");
+    text("SHOOTOUT", 256, 165, "italic 900 70px Arial", "#00539b");
   });
 });
 adTexture.wrapS = THREE.RepeatWrapping;
-band(-0.03, 0.85, 3.2, 0, 64, new THREE.MeshStandardMaterial({ map: adTexture, roughness: 0.4 }));
+band(-0.03, 0.85, 3.2, 0, 96, new THREE.MeshStandardMaterial({ map: adTexture, roughness: 0.4 }));
 
 // Metal posts that hold the glass
 const stanchionShape = new THREE.BoxGeometry(0.12, RINK.glassHeight - RINK.boardHeight - 0.15, 0.12);
@@ -476,6 +516,60 @@ function makeSkate(parent) {
   return skate;
 }
 
+// A real-looking hockey stick: carbon shaft with graphics, curved blade wrapped in white tape
+function makeStick(parent) {
+  const T = SHOOTER_TEAM;
+  // the shaft's graphics, painted along its length
+  const shaftPaint = paintTexture(128, 2048, (ctx, w, h) => {
+    ctx.fillStyle = "#141518"; ctx.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 6) { ctx.fillStyle = y % 12 ? "#1b1d22" : "#121316"; ctx.fillRect(0, y, w, 3); }  // carbon weave
+    ctx.fillStyle = T.stripe; ctx.fillRect(0, h * 0.06, w, h * 0.02);
+    ctx.fillStyle = "white";  ctx.fillRect(0, h * 0.085, w, h * 0.008);
+    ctx.save(); ctx.translate(w / 2, h * 0.24); ctx.rotate(Math.PI / 2);
+    ctx.font = "italic 900 96px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "white"; ctx.fillText("SNIPER", 0, 0);
+    ctx.font = "700 46px Arial"; ctx.fillStyle = T.stripe; ctx.fillText("SAROSH  •  " + T.number, 380, 0);
+    ctx.restore();
+    ctx.fillStyle = T.stripe; ctx.fillRect(0, h * 0.62, w, h * 0.012);
+    ctx.fillStyle = "white";  ctx.fillRect(0, h * 0.64, w, h * 0.005);
+  });
+  const shaft = addMesh(parent, new THREE.CylinderGeometry(0.045, 0.045, 1, 8), new THREE.MeshPhysicalMaterial({
+    map: shaftPaint, roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.3 }));
+  shaft.scale.set(1.15, 1, 0.8);     // squashed into a rounded rectangle, like a real shaft
+  // tape on the knob (top of the stick)
+  const knob = addMesh(parent, new THREE.CylinderGeometry(0.062, 0.058, 0.32, 12), material("#f0f0ea", 0.9));
+  // the blade: a flat shape (heel to toe), bent into a curve
+  const bladeShape = new THREE.Shape();
+  bladeShape.moveTo(0, 0);
+  bladeShape.lineTo(0.88, 0);
+  bladeShape.quadraticCurveTo(1.0, 0.0, 1.0, 0.13);           // rounded toe
+  bladeShape.quadraticCurveTo(1.0, 0.29, 0.86, 0.29);
+  bladeShape.lineTo(0.12, 0.25);
+  bladeShape.quadraticCurveTo(0.02, 0.25, 0, 0.32);           // heel rises into the shaft
+  bladeShape.lineTo(0, 0);
+  const bladeShapeGeo = new THREE.ExtrudeGeometry(bladeShape, { depth: 0.022, bevelEnabled: true, bevelSize: 0.006, bevelThickness: 0.006, bevelSegments: 2, curveSegments: 10 });
+  const pos = bladeShapeGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    pos.setZ(i, pos.getZ(i) + 0.13 * x * x);                   // the curve!
+  }
+  bladeShapeGeo.computeVertexNormals();
+  bladeShapeGeo.translate(-0.5, -0.135, -0.07);
+  const tape = paintTexture(512, 256, (ctx, w, h) => {
+    ctx.fillStyle = "#16171a"; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#ecebe4"; ctx.fillRect(w * 0.14, 0, w * 0.68, h);          // white tape, heel to near the toe
+    ctx.strokeStyle = "rgba(0,0,0,0.13)"; ctx.lineWidth = 3;
+    for (let x = w * 0.14; x < w * 0.82; x += 14) { ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x + 30, 0); ctx.stroke(); }  // tape wraps
+    ctx.fillStyle = "rgba(60,60,60,0.25)";
+    for (let i = 0; i < 40; i++) ctx.fillRect(w * 0.3 + Math.random() * w * 0.45, h * 0.55 + Math.random() * h * 0.45, 6, 3);  // puck marks
+  });
+  tape.wrapS = tape.wrapT = THREE.RepeatWrapping;
+  const blade = new THREE.Group();
+  addMesh(blade, bladeShapeGeo, material("#ffffff", 0.75, { map: tape }));
+  parent.add(blade);
+  return { shaft, knob, blade };
+}
+
 // THE SHOOTER (an athletic skater in full gear)
 function makeShooter() {
   const T = SHOOTER_TEAM;
@@ -538,13 +632,7 @@ function makeShooter() {
     };
   });
 
-  // the stick: black shaft, white tape on the knob and the blade
-  const shaft = addMesh(root, new THREE.BoxGeometry(0.09, 1, 0.065), material("#1c1c1c", 0.35));
-  const knob = addMesh(root, new THREE.CylinderGeometry(0.06, 0.06, 0.25, 12), material("#f2f2f2", 0.7));
-  const blade = new THREE.Group();
-  addMesh(blade, new THREE.BoxGeometry(1.0, 0.27, 0.05), material("#1c1c1c", 0.5));
-  addMesh(blade, new THREE.BoxGeometry(0.7, 0.2, 0.056), material("#f2f2f2", 0.8), 0.05, 0, 0);
-  root.add(blade);
+  const { shaft, knob, blade } = makeStick(root);
 
   return { root, torso, head, legs, arms, shaft, knob, blade };
 }
@@ -557,7 +645,15 @@ function makeGoalie() {
   const jersey = material(T.jersey, 0.7);
   const white = material("#f4f4f4", 0.45);
   const redTrim = material(T.stripe, 0.5);
-  const padMat = material("#ffffff", 0.5, { map: stripeTexture(T.pads, [[0.14, 0.05, T.stripe], [0.2, 0.05, T.jersey], [0.55, 0.05, T.stripe], [0.61, 0.05, T.jersey], [0.86, 0.04, T.stripe]]) });
+  const padMat = material("#ffffff", 0.5, { map: paintTexture(512, 1024, (ctx, w, h) => {
+    ctx.fillStyle = T.pads; ctx.fillRect(0, 0, w, h);
+    [[0.14, 0.05, T.stripe], [0.2, 0.05, T.jersey], [0.55, 0.05, T.stripe], [0.61, 0.05, T.jersey], [0.86, 0.04, T.stripe]].forEach(([y, hh, c]) => { ctx.fillStyle = c; ctx.fillRect(0, y * h, w, hh * h); });
+    [0, w].forEach(x => {   // brand name down the front of the pad (drawn twice so it joins up around the pad)
+      ctx.save(); ctx.translate(x, h * 0.4); ctx.rotate(-Math.PI / 2);
+      ctx.font = "italic 900 54px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = T.jersey; ctx.fillText("BRICKWALL", 0, 0); ctx.restore();
+    });
+  }) });
 
   const torso = new THREE.Group();
   root.add(torso);
@@ -603,8 +699,251 @@ function makeGoalie() {
   return { root, torso, head, blocker, glove, legs, arms };
 }
 
+
+// ----- 6b. THE REAL 3D PLAYER (made by an artist, with a skeleton inside!) -----
+// The model comes from Mixamo. It has 65 bones, like a real skeleton.
+// We dress it in hockey gear and move its bones to make it skate.
+const real = { ready: false };
+const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3();
+// Turn a bone by a rotation given in world space
+function turnBoneWorld(bone, worldTurn) {
+  bone.getWorldQuaternion(_q1);
+  bone.parent.getWorldQuaternion(_q2);
+  bone.quaternion.copy(_q2.invert().multiply(worldTurn.clone().multiply(_q1)));
+  bone.updateMatrixWorld(true);
+}
+// Turn a bone so that its child points at a target (like pointing your arm at something)
+function aimBone(bone, child, target) {
+  bone.getWorldPosition(_v1);
+  child.getWorldPosition(_v2);
+  const now = _v2.sub(_v1).normalize();
+  const want = target.clone().sub(_v1).normalize();
+  turnBoneWorld(bone, new THREE.Quaternion().setFromUnitVectors(now, want));
+}
+function loadRealPlayer() {
+  if (!window.PLAYER_MODEL || !THREE.GLTFLoader) return;   // no model file? keep the shape player
+  const bytes = Uint8Array.from(atob(window.PLAYER_MODEL), c => c.charCodeAt(0));
+  new THREE.GLTFLoader().parse(bytes.buffer, "", setupRealPlayer, err => console.warn("Could not load the player model", err));
+}
+// Copy the shirt's picture and paint over the dark parts (the old number and logo) with white
+function cleanShirt(texture) {
+  const img = texture.image;
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const pixels = ctx.getImageData(0, 0, c.width, c.height);
+  const d = pixels.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i] + d[i + 1] + d[i + 2] < 560) { d[i] = d[i + 1] = d[i + 2] = 236; }
+  }
+  ctx.putImageData(pixels, 0, 0);
+  const clean = new THREE.CanvasTexture(c);
+  clean.colorSpace = texture.colorSpace;
+  clean.flipY = texture.flipY;
+  return clean;
+}
+function setupRealPlayer(gltf) {
+  setupRealGoalie(THREE.SkeletonUtils.clone(gltf.scene), gltf.animations);   // a copy of the same person plays goalie!
+  const S = shooterModel, T = SHOOTER_TEAM;
+  const model = gltf.scene;
+  model.scale.setScalar(0.0345);   // the model is measured in centimeters, our game in feet
+  model.rotation.y = Math.PI;      // face the net
+  model.position.y = 0.25;         // lift him up so the skates fit under his feet
+  S.root.add(model);
+  model.traverse(n => {
+    if (!n.isMesh) return;
+    n.castShadow = true; n.receiveShadow = true; n.frustumCulled = false;
+    n.material = n.material.clone();
+    if (/Shirt/.test(n.name)) {                                 // paint the white soccer shirt in team colors
+      n.material.map = cleanShirt(n.material.map);              // ...after rubbing off the soccer team's number
+      n.material.normalMap = null;                              // (the old number was also pressed into the fabric)
+      n.material.color.set(T.jersey);
+    }
+    if (/Shorts/.test(n.name)) n.material.color.set(T.pants);
+    if (/Socks/.test(n.name)) n.material.color.set(T.jersey);
+    if (n.isSkinnedMesh) n.skeleton.pose();                      // stand in the starting pose
+  });
+  S.root.updateMatrixWorld(true);
+  const bone = name => model.getObjectByName("mixamorig5" + name);
+  const at = obj => obj.getWorldPosition(new THREE.Vector3());
+  const toRoot = worldPoint => S.root.worldToLocal(worldPoint.clone());
+  real.model = model;
+  real.hips = bone("Hips");
+  real.spine = ["Spine", "Spine1", "Spine2"].map(bone);
+  real.head = bone("Head");
+  real.legs = ["Left", "Right"].map(side => ({ up: bone(side + "UpLeg"), low: bone(side + "Leg"), foot: bone(side + "Foot"), toe: bone(side + "ToeBase") }));
+  real.arms = ["Left", "Right"].map(side => ({ up: bone(side + "Arm"), fore: bone(side + "ForeArm"), hand: bone(side + "Hand"), finger: bone(side + "HandMiddle1") }));
+  real.thigh = at(real.legs[0].up).distanceTo(at(real.legs[0].low));
+  real.shin = at(real.legs[0].low).distanceTo(at(real.legs[0].foot));
+  real.upperArm = at(real.arms[0].up).distanceTo(at(real.arms[0].fore));
+  real.foreArm = at(real.arms[0].fore).distanceTo(at(real.arms[0].hand));
+
+  // Hockey gear: we stick each piece onto a bone, so it moves with the body
+  S.legs.forEach((leg, i) => {               // skates on the feet
+    leg.skate.position.copy(toRoot(at(real.legs[i].foot)));
+    leg.skate.rotation.set(0, 0, 0);
+    real.legs[i].foot.attach(leg.skate);
+    [leg.thigh, leg.shin].forEach(m => m.visible = false);
+    leg.knee.scale.setScalar(1.2);    // hockey socks cover the knees
+    leg.thighSock.scale.set(1.35, 1, 1.35);
+  });
+  S.arms.forEach((arm, i) => {               // big hockey gloves on the hands
+    const hand = at(real.arms[i].hand), finger = at(real.arms[i].finger);
+    const dir = toRoot(finger).sub(toRoot(hand)).normalize();
+    arm.glove.position.copy(toRoot(hand.clone().lerp(finger, 0.6)));
+    arm.glove.quaternion.setFromUnitVectors(V(0, 0, 1), dir);
+    real.arms[i].hand.attach(arm.glove);
+    placeBetween(arm.cuff, toRoot(hand).addScaledVector(dir, -0.3), toRoot(hand).addScaledVector(dir, 0.05));
+    real.arms[i].hand.attach(arm.cuff);
+    [arm.upper, arm.elbow, arm.fore].forEach(m => m.visible = false);
+  });
+  S.head.children[0].visible = false;        // the old face (the real one has a face!)
+  S.root.attach(S.head);                     // the helmet follows the head every frame (see placeHelmet)
+  S.head.scale.setScalar(1.08);
+  real.headTop = bone("HeadTop_End");
+  const number = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.85), new THREE.MeshStandardMaterial({
+    map: paintTexture(256, 256, (ctx, w, h) => {
+      ctx.font = "900 170px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.lineWidth = 14; ctx.strokeStyle = T.stripe; ctx.strokeText(T.number, w / 2, h / 2);
+      ctx.fillStyle = "white"; ctx.fillText(T.number, w / 2, h / 2);
+    }), transparent: true, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4 }));
+  S.root.add(number);
+  number.position.copy(toRoot(at(real.spine[2])).add(V(0, -0.08, 0.47)));
+  real.spine[2].attach(number);              // jersey number on the back
+  S.torso.visible = false;                   // hide the old shape body
+
+  real.mixer = new THREE.AnimationMixer(model);
+  real.actions = {};
+  gltf.animations.forEach(clip => real.actions[clip.name] = real.mixer.clipAction(clip));
+  real.current = real.actions.idle;
+  real.current.play();
+  real.ready = true;
+}
+
+// THE REAL GOALIE: the same 3D person, wearing our goalie gear (pads, blocker, glove, mask)
+const realGoalie = { ready: false };
+const turnQ = (axis, angle) => new THREE.Quaternion().setFromAxisAngle(axis, angle);
+function setupRealGoalie(model, clips) {
+  const G = goalieModel, T = GOALIE_TEAM;
+  model.scale.setScalar(0.0345);
+  model.position.y = 0.25;
+  G.root.add(model);
+  model.traverse(n => {
+    if (!n.isMesh) return;
+    n.castShadow = true; n.receiveShadow = true; n.frustumCulled = false;
+    n.material = n.material.clone();
+    if (/Shirt|Shorts|Socks/.test(n.name)) n.material.color.set(T.jersey);
+    if (/Shirt/.test(n.name)) { n.material.map = cleanShirt(n.material.map); n.material.normalMap = null; }
+    if (n.isSkinnedMesh) n.skeleton.pose();
+  });
+  G.root.updateMatrixWorld(true);
+  const bone = name => model.getObjectByName("mixamorig5" + name);
+  const at = obj => obj.getWorldPosition(new THREE.Vector3());
+  const R = realGoalie;
+  R.hips = bone("Hips");
+  R.spine = ["Spine", "Spine1", "Spine2"].map(bone);
+  R.head = bone("Head"); R.headTop = bone("HeadTop_End");
+  // the goalie faces us, so HIS right side is on the left of the screen
+  R.legs = ["Right", "Left"].map(side => ({ up: bone(side + "UpLeg"), low: bone(side + "Leg"), foot: bone(side + "Foot"), toe: bone(side + "ToeBase") }));
+  R.arms = ["Right", "Left"].map(side => ({ up: bone(side + "Arm"), fore: bone(side + "ForeArm"), hand: bone(side + "Hand") }));
+  R.upperArm = at(R.arms[0].up).distanceTo(at(R.arms[0].fore));
+  R.foreArm = at(R.arms[0].fore).distanceTo(at(R.arms[0].hand));
+  G.arms.forEach(a => [a.upper, a.fore, a.elbow].forEach(m => m.visible = false));
+  G.root.attach(G.head);
+  R.mixer = new THREE.AnimationMixer(model);
+  R.mixer.clipAction(clips.find(c => c.name === "idle")).play();
+  R.ready = true;
+}
+function poseRealGoalie(legs, hipsY, b) {
+  const G = goalieModel, R = realGoalie;
+  R.mixer.update(frameDt);
+  G.root.updateMatrixWorld(true);
+  const right = V(1, 0, 0).applyQuaternion(G.root.quaternion);
+  R.hips.position.copy(R.hips.parent.worldToLocal(G.root.localToWorld(V(0, hipsY + 0.05, lerp(-0.15, -0.25, b)))));
+  R.hips.updateMatrixWorld(true);
+  R.spine.forEach(bn => turnBoneWorld(bn, turnQ(right, lerp(0.28, 0.08, b) / 3)));   // lean toward the shooter
+  legs.forEach((t, i) => {     // knees and feet go where the stance or butterfly puts them
+    const L = R.legs[i];
+    const knee = G.root.localToWorld(t.knee.clone()), ankle = G.root.localToWorld(t.ankle.clone());
+    aimBone(L.up, L.low, knee);
+    aimBone(L.low, L.foot, ankle);
+    aimBone(L.foot, L.toe, ankle.clone().add(V(0, -0.5, 1).applyQuaternion(G.root.quaternion)));
+  });
+  [G.blocker, G.glove].forEach((hand, i) => {   // hands inside the blocker and the glove
+    const A = R.arms[i], s = i === 0 ? -1 : 1;
+    const target = G.root.localToWorld(hand.position.clone().add(V(0, 0, -0.38)));   // hand tucked inside the gear
+    const ik = twoBone(A.up.getWorldPosition(new THREE.Vector3()), target, R.upperArm, R.foreArm, V(s, -0.7, -0.3).applyQuaternion(G.root.quaternion));
+    aimBone(A.up, A.fore, ik.joint);
+    aimBone(A.fore, A.hand, ik.end);
+  });
+  // the mask goes on his head
+  const head = R.head.getWorldPosition(new THREE.Vector3()), top = R.headTop.getWorldPosition(new THREE.Vector3());
+  const upDir = top.clone().sub(head).normalize().applyQuaternion(G.root.quaternion.clone().invert());
+  G.head.position.copy(G.root.worldToLocal(head.lerp(top, 0.55))).add(V(0, 0.02, 0.03));
+  G.head.quaternion.setFromUnitVectors(V(0, 1, 0), upDir);
+}
+
+// The helmet sits on top of the head, tilted the same way as the head
+function placeHelmet() {
+  const S = shooterModel;
+  const head = real.head.getWorldPosition(new THREE.Vector3()), top = real.headTop.getWorldPosition(new THREE.Vector3());
+  const upDir = top.clone().sub(head).normalize().applyQuaternion(S.root.quaternion.clone().invert());
+  S.head.position.copy(S.root.worldToLocal(head.lerp(top, 0.6))).add(V(0, 0.03, 0.05));
+  S.head.quaternion.setFromUnitVectors(V(0, 1, 0), upDir);
+}
+
+// Every frame: play the recorded animation, then bend the bones for skating and holding the stick
+function poseRealPlayer(dt, legTargets, topHand, lowHand, hipsY, sway) {
+  const S = shooterModel;
+  const celebrating = state === "result" && resultGoal;
+  const want = celebrating ? real.actions.fistpump : real.actions.idle;
+  if (real.current !== want) { want.reset().fadeIn(0.3).play(); real.current.fadeOut(0.3); real.current = want; }
+  real.mixer.update(dt);
+  [S.shaft, S.knob, S.blade].forEach(o => o.visible = !celebrating);   // drop the stick to celebrate!
+  if (celebrating) { S.root.updateMatrixWorld(true); placeHelmet(); return; }
+
+  S.root.updateMatrixWorld(true);
+  const turn = (axis, angle) => new THREE.Quaternion().setFromAxisAngle(axis, angle);
+  const right = V(1, 0, 0).applyQuaternion(S.root.quaternion);
+  const up = V(0, 1, 0);
+  // hips low (knees bent) and swaying side to side
+  real.hips.position.copy(real.hips.parent.worldToLocal(S.root.localToWorld(V(sway, hipsY + 0.1, 0.1))));
+  real.hips.updateMatrixWorld(true);
+  // lean forward, and twist for wind-ups and stickhandling
+  real.spine.forEach(b => turnBoneWorld(b, turn(right, -lean / 3)));
+  turnBoneWorld(real.spine[2], turn(up, -shooter.windup * 0.5 + shooter.follow * 0.3 - (shooter.handle - 1.1) * 0.12));
+  turnBoneWorld(real.head, turn(right, lean * 0.75));   // keep looking at the net
+  // legs: the knee goes where the math says (inverse kinematics!)
+  legTargets.forEach((t, i) => {
+    const L = real.legs[i];
+    const ankle = S.root.localToWorld(t.ankle.clone());
+    const hint = V(t.side * 0.3, 0, -1).applyQuaternion(S.root.quaternion);
+    const ik = twoBone(L.up.getWorldPosition(new THREE.Vector3()), ankle, real.thigh, real.shin, hint);
+    aimBone(L.up, L.low, ik.joint);
+    aimBone(L.low, L.foot, ik.end);
+    const leg = S.legs[i];             // socks over the knees
+    const kneeAt = S.root.worldToLocal(ik.joint.clone()), hipAt = S.root.worldToLocal(L.up.getWorldPosition(new THREE.Vector3()));
+    leg.knee.position.copy(kneeAt);
+    placeBetween(leg.thighSock, hipAt.lerp(kneeAt, 0.6), kneeAt);
+    const toes = V(-Math.sin(t.yaw), -0.6, -Math.cos(t.yaw)).applyQuaternion(S.root.quaternion);
+    aimBone(L.foot, L.toe, ik.end.clone().add(toes));
+  });
+  // arms: hands on the stick
+  [topHand, lowHand].forEach((hand, i) => {
+    const A = real.arms[i], side = i === 0 ? -1 : 1;
+    const target = S.root.localToWorld(hand.clone());
+    const hint = V(side, -0.6, 0.6).applyQuaternion(S.root.quaternion);
+    const ik = twoBone(A.up.getWorldPosition(new THREE.Vector3()), target, real.upperArm, real.foreArm, hint);
+    aimBone(A.up, A.fore, ik.joint);
+    aimBone(A.fore, A.hand, ik.end);
+  });
+  placeHelmet();
+}
+
 const shooterModel = makeShooter();
 const goalieModel = makeGoalie();
+loadRealPlayer();
 const puckModel = addMesh(scene, new THREE.CylinderGeometry(0.25, 0.25, 0.085, 32), material("#0b0b0b", 0.35));
 
 // a yellow ring that shows where you aimed
@@ -1014,23 +1353,26 @@ function updateShooterModel(dt) {
   S.head.rotation.x = lean * 0.8;   // keep looking at the net
   S.root.updateMatrixWorld(true);
 
+  const legTargets = [];
   S.legs.forEach((leg, i) => {
     const s = leg.side;
     const ph = (p + (i === 0 ? 0 : 0.5)) % 1;
     let ankle, yaw;
     if (!skating) {                 // gliding: feet under the body
-      ankle = V(s * 0.55, 0.45, s * 0.2); yaw = -s * 0.1;
+      ankle = V(s * 0.5, 0.5, s * 0.2); yaw = -s * 0.1;
     } else if (ph < 0.62) {         // PUSH: out to the side and back
       const u = ph / 0.62;
-      ankle = V(s * (0.4 + 0.95 * u), 0.45, -0.25 + 1.15 * u); yaw = -s * (0.25 + 0.3 * u);
+      ankle = V(s * (0.4 + 0.95 * u), 0.5, -0.25 + 1.15 * u); yaw = -s * (0.25 + 0.3 * u);
     } else {                        // RECOVER: lift the skate and bring it back
       const u = (ph - 0.62) / 0.38;
-      ankle = V(s * (1.35 - 0.95 * u), 0.45 + 0.4 * Math.sin(Math.PI * u), 0.9 - 1.15 * u); yaw = -s * 0.55 * (1 - u);
+      ankle = V(s * (1.35 - 0.95 * u), 0.5 + 0.4 * Math.sin(Math.PI * u), 0.9 - 1.15 * u); yaw = -s * 0.55 * (1 - u);
     }
     if (skating && leg.phaseBefore < 0.55 && ph >= 0.55) {   // snow flies when the push ends
       sprayAt(S.root.localToWorld(ankle.clone()), V(s * 0.8, 0, 0.6), 6, 4);
     }
     leg.phaseBefore = ph;
+    legTargets.push({ ankle: ankle, yaw: yaw, side: s });
+    if (real.ready) return;     // the real player moves his own legs
     const hip = V(sway + s * 0.3, hipsY - 0.05, 0.05);
     const ik = twoBone(hip, ankle, 1.5, 1.55, V(s * 0.3, 0, -1));
     const pantsEnd = hip.clone().lerp(ik.joint, 0.7);
@@ -1062,13 +1404,14 @@ function updateShooterModel(dt) {
   const heel = bladeCenter.clone().addScaledVector(along, -0.48);
   const topEnd = topHand.clone().add(topHand.clone().sub(heel).normalize().multiplyScalar(0.35));
   placeBetween(S.shaft, heel, topEnd);
-  placeBetween(S.knob, topEnd, topHand, false);
-  S.knob.position.copy(topEnd);
+  placeBetween(S.knob, topEnd, topEnd.clone().lerp(topHand, 0.5), false);
+  S.knob.position.lerp(topEnd, 0.6);
   S.blade.position.copy(bladeCenter);
   S.blade.rotation.set(0, Math.atan2(-along.z, along.x), 0);
   if (lifted) S.blade.rotateX(-Math.PI / 2.2);
   const lowHand = topHand.clone().lerp(heel, 0.32);
 
+  if (real.ready) { poseRealPlayer(dt, legTargets, topHand, lowHand, hipsY, sway); return; }
   S.arms.forEach(arm => {
     const shoulder = toRoot(V(arm.side * 0.62, 1.5, 0));
     const hand = arm.side < 0 ? topHand : lowHand;
@@ -1096,6 +1439,7 @@ function updateGoalieModel() {
   G.torso.rotation.set(lerp(0.28, 0.08, b), 0, -goalie.speed * 0.012);
   G.root.updateMatrixWorld(true);
   const shuffle = Math.sin(clock * 14) * Math.min(1, Math.abs(goalie.speed) / 5) * (1 - b) * 0.12;
+  const goalieLegs = [];
 
   G.legs.forEach(leg => {
     const s = leg.side;
@@ -1105,7 +1449,9 @@ function updateGoalieModel() {
     placeBetween(leg.thigh, hip, knee);
     const up = knee.clone().sub(ankle).normalize();
     placeBetween(leg.pad, ankle.clone().addScaledVector(up, -0.3), knee.clone().addScaledVector(up, 0.55), false);   // big pads: from the skate to above the knee
+    leg.pad.position.z += 0.14;   // pads sit in FRONT of the legs
     leg.skate.position.set(ankle.x, 0.15, ankle.z);
+    goalieLegs.push({ knee: knee, ankle: ankle });
   });
 
   // hands: glove on the right of the screen, blocker on the left. They reach toward high shots.
@@ -1121,15 +1467,20 @@ function updateGoalieModel() {
     G.arms[i].elbow.position.copy(ik.joint);
     placeBetween(G.arms[i].fore, ik.joint, ik.end);
   });
+  if (realGoalie.ready) poseRealGoalie(goalieLegs, hipsY, b);
 }
 
 const lookTarget = spot(0, 1, RINK.goalLine);
 function updateCamera(dt) {
   let wantPos, wantLook;
-  if (state === "result" && resultGoal && timer > 0.3) {
+  if (state === "result" && resultGoal && timer > 0.3 && timer < 1.8) {
     // GOAL replay angle: from the side of the net
     wantPos = spot(9, 4.2, 79);
     wantLook = spot(0, 1.5, RINK.goalLine - 3);
+  } else if (state === "result" && resultGoal && timer >= 1.8) {
+    // then turn around to watch the celebration!
+    wantPos = spot(shooter.x - 3, 4.5, shooter.z + 9);
+    wantLook = spot(shooter.x, 3.6, shooter.z);
   } else {
     // follow the shooter: behind him (on the line from the net), and a bit to his right
     const followZ = Math.min(shooter.z, 76);
@@ -1150,7 +1501,9 @@ function updateCamera(dt) {
   sun.position.copy(middle).add(V(18, 70, 30));
 }
 
+let frameDt = 1 / 60;
 function updateModels(dt) {
+  frameDt = dt;
   updateShooterModel(dt);
   updateGoalieModel();
   puckModel.position.copy(spot(puck.x, puck.y + 0.042, puck.z));

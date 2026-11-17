@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<!-- Converts the big Mixamo .fbx files in models/ into one small models/player.glb.
+     Claude runs this page in a browser with a local web server; see tools/README.md. -->
+<meta charset="utf-8">
+<script src="../lib/three.min.js"></script>
+<script src="lib/fbx-to-glb.min.js"></script>
+<script>
+const ANIMATIONS = { idle: "Idle.fbx", fistpump: "Fist Pump.fbx", rallying: "Rallying.fbx" };
+const BODY_FILE = "Idle.fbx";
+const DROP_MESHES = ["Ch38_Shoes", "Ch38_Hair"];   // replaced by skates and a helmet
+
+async function waitForTextures(root) {
+  for (let tries = 0; tries < 100; tries++) {
+    let ready = true;
+    root.traverse(n => { if (n.isMesh) [].concat(n.material).forEach(m => ["map", "normalMap"].forEach(k => { if (m[k] && !m[k].image) ready = false; })); });
+    if (ready) return;
+    await new Promise(r => setTimeout(r, 100));
+  }
+}
+
+async function buildPlayer() {
+  const loader = new THREE.FBXLoader();
+  const body = await loader.loadAsync("../models/" + encodeURIComponent(BODY_FILE));
+  await waitForTextures(body);
+  const clips = [];
+  for (const [name, file] of Object.entries(ANIMATIONS)) {
+    const source = file === BODY_FILE ? body : await loader.loadAsync("../models/" + encodeURIComponent(file));
+    const clip = source.animations.find(a => a.tracks.length > 0).clone();
+    clip.name = name;
+    clips.push(clip);
+  }
+  const report = {};
+
+  // 1. The FBX loader makes copies of some bones. Keep one bone per name.
+  body.updateMatrixWorld(true);
+  const main = {};
+  body.traverse(n => { if (n.isBone && !main[n.name]) main[n.name] = n; });
+  let worst = 0;
+  body.traverse(n => { if (n.isBone && main[n.name] !== n) {
+    const a = n.matrixWorld.elements, b = main[n.name].matrixWorld.elements;
+    a.forEach((v, i) => worst = Math.max(worst, Math.abs(v - b[i])));
+  }});
+  report.duplicateBoneOffset = worst;
+  body.traverse(n => { if (n.isSkinnedMesh) {
+    n.bind(new THREE.Skeleton(n.skeleton.bones.map(b => main[b.name]), n.skeleton.boneInverses), n.bindMatrix);
+  }});
+  const copies = [];
+  body.traverse(n => { if (n.isBone && main[n.name] !== n) copies.push(n); });
+  copies.forEach(c => { c.children.filter(k => !copies.includes(k)).forEach(k => main[c.name].attach(k)); c.parent.remove(c); });
+  report.bones = Object.keys(main).length;
+
+  // 2. Drop the soccer shoes and hair, and use simple standard materials
+  DROP_MESHES.forEach(name => { const m = body.getObjectByName(name); if (m) m.parent.remove(m); });
+  body.traverse(n => { if (n.isMesh) {
+    const old = [].concat(n.material)[0];
+    if (old.map) old.map.userData.mimeType = "image/jpeg";
+    if (old.normalMap) old.normalMap.userData.mimeType = "image/jpeg";
+    n.material = new THREE.MeshStandardMaterial({ name: old.name, map: old.map, normalMap: old.normalMap, roughness: 0.8,
+                                                  transparent: old.transparent, alphaTest: old.alphaTest });
+  }});
+  report.meshes = []; body.traverse(n => { if (n.isMesh) report.meshes.push(n.name + " " + n.geometry.attributes.position.count); });
+
+  // 3. Keep only animation tracks for bones that exist, and make them smaller
+  clips.forEach(c => { c.tracks = c.tracks.filter(t => main[t.name.split(".")[0]]); c.optimize(); });
+  report.clips = clips.map(c => c.name + " " + c.duration.toFixed(2) + "s");
+
+  // 4. Save it all as one .glb file (textures shrunk to 1024 pixels)
+  const glb = await new THREE.GLTFExporter().parseAsync(body, { binary: true, animations: clips, maxTextureSize: 1024 });
+  let text = ""; const bytes = new Uint8Array(glb);
+  for (let i = 0; i < bytes.length; i += 32768) text += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+  report.kb = Math.round(bytes.length / 1024);
+  return { report, base64: btoa(text) };
+}
+</script>

@@ -25,6 +25,7 @@ This project's memory file. Claude reads it at the start of every session in thi
 - No accounts, logins, chat, ads, payments, or uploading data online in the game.
 - Only use art, sounds, and fonts we make ourselves or that are clearly free to use (note the source in `docs/credits.md`).
 - Don't copy a real existing game, team logos, or real NHL players. Invent our own teams and players.
+- No real brand names or logos (no real stick/skate/gear brands). We use made-up brands: SNIPER, ICEBLADE, BRICKWALL, TOP SHELF PIZZA, FROSTY COLA.
 
 ## Tech choices (keep it simple)
 - Plain **HTML + JavaScript**, with **three.js** (a 3D engine) for real 3D graphics. No build tools, no npm needed to play.
@@ -42,7 +43,10 @@ This project's memory file. Claude reads it at the start of every session in thi
 ## Project files
 - `index.html` — the web page (menu, scoreboard)
 - `game.js` — the game code (3D world, players, rules)
-- `lib/` — the three.js 3D engine (don't edit)
+- `lib/` — the three.js 3D engine and the glTF model loader (don't edit)
+- `models/` — the 3D player from Mixamo: the original `.fbx` downloads, `player.glb` (cleaned, small) and
+  `player.js` (the same data as text, so a double-clicked `index.html` can load it). See `tools/README.md`.
+- `tools/` — how we turn Mixamo `.fbx` files into `models/player.glb` and `models/player.js`
 - `docs/game-plan.md` — Sarosh's game ideas and the to-do list (the game design "playbook")
 - `docs/progress-log.md` — a diary of what we built each session (update it at the end of every session)
 - `docs/credits.md` — where any art/sound came from

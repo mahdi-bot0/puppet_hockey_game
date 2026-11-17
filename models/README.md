@@ -6,9 +6,9 @@ Put the downloaded `.fbx` files here, then run:
 node tools/embed-models.js
 ```
 
-Expected files (names matter):
-- `skater.fbx` — the rigged skater (Mixamo "FBX Binary", **With Skin**, T-pose)
-- `goalie.fbx` — optional, a rigged goalie (same settings)
-- `celebrate.fbx` — optional, a celebration animation (Mixamo, **Without Skin**)
+The converter (tools/build-player.html) reads these files:
+- `Idle.fbx` — the player (Mixamo character "Ch38", With Skin) with the idle animation
+- `Fist Pump.fbx`, `Rallying.fbx` — celebrations
+
 
 Write where each model came from and its license in `docs/credits.md`.

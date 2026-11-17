@@ -27,3 +27,9 @@ Newest entries at the bottom. Claude adds one at the end of every session.
 - **Built:** Athletic players with real gear (helmet + visor, shoulder pads, gloves, striped socks, skates with holders and steel blades, taped stick). Real skating: legs push out to the side, knees bent, stickhandling, snow spray from the skates. 10 moves: wrist, snap, slap, backhand, deke, five-hole, spin-o-rama, toe drag, shot fake, lacrosse. The goalie goes into the butterfly (low shots, up close, on shot fakes), comes out to cut the angle, and bites on dekes. Shootout with 3 rounds + sudden death and a tracker. Boards with ads, glass posts, crowd noise, goal replay camera.
 - **Learned:** Inverse kinematics (the computer works out where the knee/elbow go when you say where the foot/hand should be). Data in an object (all 10 moves live in one MOVES list).
 - **Next:** Sarosh plays and gives feedback.
+
+## 2026-11-17 — A REAL 3D player!
+- **Sarosh's feedback:** players still looked like shapes; wanted them to look actually realistic. Also a more real stick, a more real goalie, and nice brand names.
+- **Built:** Sarosh and his parent downloaded a realistic person (Mixamo "Ch38") with Idle, Fist Pump and Rallying animations. We converted 157 MB of .fbx files into one 7 MB .glb. The skater and the goalie are now that real person, dressed in our gear (helmet with visor, gloves, socks over the knees, skates; goalie mask with cage, BRICKWALL pads, blocker, glove). Their bones are bent with inverse kinematics to skate, hold the stick, and drop into the butterfly. Realistic stick (curved blade, white tape, SNIPER carbon shaft). Made-up brands on the boards. Fist-pump celebration with a camera that turns around to watch.
+- **Learned:** How real games make characters (artists, skeletons/rigs, motion capture). What GLTF and a loader are. Licenses (CC0, CC BY, ND...). How to make a GitHub token and push from Terminal.
+- **Next:** Sarosh plays and gives feedback.
