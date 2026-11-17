@@ -465,6 +465,7 @@ const netTexture = paintTexture(64, 64, (ctx, w, h) => {
 });
 netTexture.wrapS = netTexture.wrapT = THREE.RepeatWrapping;
 netTexture.repeat.set(46, 16);
+let netMesh = null, netRest = null, netWobble = 0, netHitX = 0, netHitY = 0;   // for the net ripple
 (function buildNet() {
   const red = material("#c8102e", 0.3, { metalness: 0.4 });
   const white = material("#f2f2f2", 0.5);
@@ -496,6 +497,8 @@ netTexture.repeat.set(46, 16);
   mesh.setIndex(index);
   mesh.computeVertexNormals();
   const net = new THREE.Mesh(mesh, new THREE.MeshStandardMaterial({ color: "white", map: netTexture, alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.8 }));
+  netMesh = net;
+  netRest = Float32Array.from(mesh.attributes.position.array);
   net.castShadow = true;
   scene.add(net);
   const curve = edge => new THREE.CatmullRomCurve3(Array.from({ length: 17 }, (_, k) => { const p = edge(k / 16); return V(p.x, p.y, -p.z); }));
@@ -1088,6 +1091,41 @@ function updateSpray(dt) {
 }
 
 
+// Skate marks: white scratches left on the ice behind the skates
+const MARKS = 600;
+const markShape = new THREE.PlaneGeometry(0.05, 0.45);
+markShape.rotateX(-Math.PI / 2);
+const skateMarks = new THREE.InstancedMesh(markShape, new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.5, depthWrite: false }), MARKS);
+const _markMatrix = new THREE.Matrix4();
+for (let i = 0; i < MARKS; i++) skateMarks.setMatrixAt(i, _markMatrix.makeScale(0, 0, 0));
+skateMarks.renderOrder = 2;
+skateMarks.frustumCulled = false;
+scene.add(skateMarks);
+let markNext = 0;
+const lastMark = [null, null];
+function addSkateMark(leg, where, yaw) {
+  if (lastMark[leg] && lastMark[leg].distanceTo(where) < 0.35) return;
+  lastMark[leg] = where.clone();
+  _markMatrix.compose(V(where.x, 0.012, where.z), new THREE.Quaternion().setFromAxisAngle(UP, yaw), V(1, 1, 1));
+  skateMarks.setMatrixAt(markNext++ % MARKS, _markMatrix);
+  skateMarks.instanceMatrix.needsUpdate = true;
+}
+
+// The net ripples when the puck hits it
+function rippleNet(dt) {
+  if (netWobble <= 0) return;
+  netWobble = Math.max(0, netWobble - dt);
+  const pos = netMesh.geometry.attributes.position;
+  const t = 1.2 - netWobble;                       // time since the puck hit
+  const push = 0.55 * Math.exp(-3 * t) * Math.cos(t * 18);
+  for (let i = 0; i < pos.count; i++) {
+    const x = netRest[i * 3], y = netRest[i * 3 + 1], z = netRest[i * 3 + 2];
+    const d2 = (x - netHitX) ** 2 + (y - netHitY) ** 2;
+    pos.setZ(i, z - push * Math.exp(-d2 / 1.6) * Math.min(1, (-z - RINK.goalLine) * 2 + 0.2));
+  }
+  pos.needsUpdate = true;
+}
+
 // ----- 7. GAME STATE: everything the game needs to remember -----
 //   "menu" -> "ready" -> "skating" -> "move" -> "shot" -> "result" -> back to "menu"
 let state = "menu";
@@ -1118,6 +1156,7 @@ function startAudio() {
   audio = new (window.AudioContext || window.webkitAudioContext)();
   // crowd noise: random "hiss" shaped to sound like lots of people
   const noise = audio.createBuffer(1, audio.sampleRate * 2, audio.sampleRate);
+  noiseBuffer = noise;
   const data = noise.getChannelData(0);
   for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
   const source = audio.createBufferSource();
@@ -1175,6 +1214,30 @@ function playThud(high) {
   volume.gain.exponentialRampToValueAtTime(0.001, now + (high ? 0.6 : 0.25));
   o.connect(volume).connect(audio.destination);
   o.start(now); o.stop(now + 0.7);
+}
+let noiseBuffer = null;
+// Skates carving the ice: a short "shhhk" of noise (long = a hockey stop!)
+function playCarve(loudness, seconds) {
+  if (!audio || !noiseBuffer) return;
+  const now = audio.currentTime, src = audio.createBufferSource(), filter = audio.createBiquadFilter(), volume = audio.createGain();
+  src.buffer = noiseBuffer;
+  filter.type = "highpass"; filter.frequency.value = 2200;
+  volume.gain.setValueAtTime(0, now);
+  volume.gain.linearRampToValueAtTime(0.06 * loudness, now + 0.03);
+  volume.gain.exponentialRampToValueAtTime(0.001, now + seconds);
+  src.connect(filter).connect(volume).connect(audio.destination);
+  src.start(now, Math.random()); src.stop(now + seconds + 0.05);
+}
+// The stick tapping the puck while stickhandling: a soft "tok"
+function playTap() {
+  if (!audio) return;
+  const now = audio.currentTime, o = audio.createOscillator(), volume = audio.createGain();
+  o.frequency.setValueAtTime(700, now);
+  o.frequency.exponentialRampToValueAtTime(300, now + 0.04);
+  volume.gain.setValueAtTime(0.035, now);
+  volume.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+  o.connect(volume).connect(audio.destination);
+  o.start(now); o.stop(now + 0.07);
 }
 function playClack() {   // stick hitting the puck
   if (!audio) return;
@@ -1252,6 +1315,8 @@ renderer.domElement.addEventListener("click", e => {
     if (!target) { hintText = "Click INSIDE the net!"; hintTimer = 1.5; return; }
     showAim(target);
     beginMove(target);
+  } else if (replay) {
+    endReplay();                 // click to skip the replay
   } else if (state === "result") {
     if (shootout.winner) { shootout.you = []; shootout.them = []; shootout.winner = null; }
     state = "menu";
@@ -1260,7 +1325,27 @@ renderer.domElement.addEventListener("click", e => {
 
 
 // ----- 10. GAME ACTIONS -----
+// INSTANT REPLAY: we save a "snapshot" of everything every frame, then play the last 2 seconds back in slow motion
+let recording = [];
+let replay = null, replayDone = false;
+function snapshot() {
+  return JSON.parse(JSON.stringify({ shooter, goalie, puck, shot, state, timer, clock }));
+}
+function applySnapshot(snap) {
+  Object.assign(shooter, snap.shooter); Object.assign(goalie, snap.goalie); Object.assign(puck, snap.puck);
+  shot = snap.shot; state = snap.state; timer = snap.timer; clock = snap.clock;
+}
+function startReplay() {
+  replay = { frames: recording.slice(-120), i: 0, saved: snapshot() };
+  replayDone = true;
+}
+function endReplay() {
+  applySnapshot(replay.saved);
+  replay = null;
+  timer = Math.max(timer, 1.8);   // go straight to the celebration
+}
 function startAttempt() {
+  recording = []; replay = null; replayDone = false;
   Object.assign(shooter, { x: 0, z: 22, speed: SKATE.startSpeed, handle: 1.1, reach: 3.0, spin: 0, windup: 0, follow: 0 });
   Object.assign(goalie, { x: 0, z: GOALIE_SETTINGS.homeZ, speed: 0, wantButterfly: 0, wantGlove: 0, wantBlocker: 0 });
   puck.onStick = true; puck.y = 0;
@@ -1341,7 +1426,15 @@ function finishAttempt(scored) {
 // ----- 11. UPDATE: move everything a tiny bit, many times per second -----
 function update(dt) {
   hintTimer -= dt;
+  if (replay) {                       // REPLAY: play the saved frames in slow motion
+    replay.i += dt * 60 * 0.45;
+    if (replay.i >= replay.frames.length - 1) endReplay();
+    else applySnapshot(replay.frames[Math.floor(replay.i)]);
+    updateSpray(dt);
+    return;
+  }
   if (state === "aiming") return;   // PAUSED: everything stands still while you aim
+  if (state === "result" && resultGoal && !replayDone && timer > 1.5 && recording.length > 30) { startReplay(); return; }
   clock += dt; timer += dt; goalLightTimer -= dt; shake = Math.max(0, shake - dt * 3);
 
   if (state === "ready" && timer > 1.2) {
@@ -1358,7 +1451,9 @@ function update(dt) {
     if (state === "skating") {
       if (keys["ArrowLeft"]) shooter.x -= SKATE.sideSpeed * dt;
       if (keys["ArrowRight"]) shooter.x += SKATE.sideSpeed * dt;
+      const before = shooter.handle;
       shooter.handle = 1.1 + Math.sin(clock * 5.5) * 0.45;   // stickhandling: the puck goes side to side
+      if ((before - 1.1) * (shooter.handle - 1.1) < 0) playTap();
       shooter.reach = 3.0;
     }
   } else if (state === "shot" || state === "result") {
@@ -1417,7 +1512,7 @@ function update(dt) {
         shot.done = true;
         const result = checkShot();
         resultText = result.text; resultGoal = result.goal;
-        if (result.goal) { playHorn(); crowdRoar(0.17, 2.5); goalLightTimer = 3; shot.bounce = { vx: 0, vz: 6 }; }
+        if (result.goal) { playHorn(); crowdRoar(0.17, 2.5); goalLightTimer = 3; shot.bounce = { vx: 0, vz: 6 }; netWobble = 1.2; netHitX = puck.x; netHitY = puck.y; }
         else if (result.post) { playThud(true); crowdRoar(0.08, 0.8); shake = 1; shot.bounce = { vx: puck.x > 0 ? 12 : -12, vz: -18 }; }
         else if (resultText.startsWith("Wide")) { crowdRoar(0.05, 0.6); shot.bounce = { vx: puck.x > 0 ? 6 : -6, vz: 14 }; }
         else { playThud(false); crowdRoar(0.06, 0.8); shot.bounce = { vx: (Math.random() - 0.5) * 20, vz: -15 }; }
@@ -1435,6 +1530,7 @@ function update(dt) {
       if (shot.timeAfter > 1.0) {
         finishAttempt(resultGoal);
         sprayAt(spot(shooter.x, 0, shooter.z), V(1, 0, -0.5), 30, 8);   // hockey stop!
+        playCarve(1.4, 0.5);
         state = "result"; timer = 0;
       }
     }
@@ -1472,6 +1568,7 @@ function update(dt) {
   goalie.blockerReach += (goalie.wantBlocker - goalie.blockerReach) * Math.min(1, ease * 1.4);
 
   updateSpray(dt);
+  if (state === "skating" || state === "move" || state === "shot") recording.push(snapshot());
 }
 
 
@@ -1511,9 +1608,11 @@ function updateShooterModel(dt) {
     }
     if (skating && leg.phaseBefore < 0.55 && ph >= 0.55) {   // snow flies when the push ends
       sprayAt(S.root.localToWorld(ankle.clone()), V(s * 0.8, 0, 0.6), 6, 4);
+      if (state !== "aiming") playCarve(0.5, 0.18);
     }
     leg.phaseBefore = ph;
     legTargets.push({ ankle: ankle, yaw: yaw, side: s });
+    if (skating && ph < 0.62) addSkateMark(i, S.root.localToWorld(ankle.clone()), shooter.spin + yaw);   // the blade cuts the ice
     if (real.ready) return;     // the real player moves his own legs
     const hip = V(sway + s * 0.3, hipsY - 0.05, 0.05);
     const ik = twoBone(hip, ankle, 1.5, 1.55, V(s * 0.3, 0, -1));
@@ -1615,7 +1714,16 @@ function updateGoalieModel() {
 const lookTarget = spot(0, 1, RINK.goalLine);
 function updateCamera(dt) {
   let wantPos, wantLook;
-  if (state === "result" && resultGoal && timer > 0.3 && timer < 1.8) {
+  if (replay) {
+    // REPLAY camera: low, beside the net, like a TV replay
+    const middleZ = (Math.min(shooter.z, 80) + RINK.goalLine) / 2;
+    wantPos = spot(16, 5, middleZ - 3);
+    wantLook = spot((shooter.x + puck.x) * 0.25, 1.8, middleZ);
+  } else if (state === "ready" && timer < 0.7) {
+    // TV-style swoop: start high up, then fly down behind the shooter
+    wantPos = spot(shooter.x + 18, 26, shooter.z - 12);
+    wantLook = spot(0, 0, 60);
+  } else if (state === "result" && resultGoal && timer > 0.3 && timer < 1.8) {
     // GOAL replay angle: from the side of the net
     wantPos = spot(9, 4.2, 79);
     wantLook = spot(0, 1.5, RINK.goalLine - 3);
@@ -1654,6 +1762,7 @@ function updateModels(dt) {
   const lightOn = goalLightTimer > 0 && Math.floor(goalLightTimer * 4) % 2 === 0;
   goalLight.intensity = lightOn ? 600 : 0;
   goalLamp.material.emissiveIntensity = lightOn ? 4 : 0.1;
+  rippleNet(dt);
   if (aimMarker.visible) aimMarker.material.opacity = Math.max(0, aimMarker.material.opacity - dt * 0.6);
   updateCamera(dt);
 }
@@ -1677,6 +1786,7 @@ function updateWords() {
   $("moveTag").textContent = MOVES[chosenMove].icon + " " + MOVES[chosenMove].name;
   let big = "", sub = "", color = "white";
   if (state === "ready") big = "Get ready...";
+  if (replay) { big = ""; sub = ""; }
 
   document.querySelectorAll("#modeButtons button").forEach(b => b.classList.toggle("picked", b.dataset.mode === aimMode));
   if (state === "skating" && timer < 0.8) { big = "TWEEEET! GO!"; color = "#ffe14d"; }
@@ -1691,7 +1801,7 @@ function updateWords() {
   $("big").textContent = big;
   $("big").style.color = color;
   if ($("sub").innerHTML !== sub) $("sub").innerHTML = sub;
-  $("hint").textContent = hintTimer > 0 ? hintText : state === "aiming" ? "⏸️ PAUSED — move the mouse to aim, press SPACE to shoot!" : (state === "skating" && timer > 0.8 ? (aimMode === "pause" ? "Click to PAUSE and aim your " : "Click inside the net to do your ") + MOVES[chosenMove].name + "!" : "");
+  $("hint").textContent = replay ? "🔁 INSTANT REPLAY — click to skip" : hintTimer > 0 ? hintText : state === "aiming" ? "⏸️ PAUSED — move the mouse to aim, press SPACE to shoot!" : (state === "skating" && timer > 0.8 ? (aimMode === "pause" ? "Click to PAUSE and aim your " : "Click inside the net to do your ") + MOVES[chosenMove].name + "!" : "");
   renderer.domElement.style.cursor = (state === "skating" || state === "aiming") ? "crosshair" : (state === "result" ? "pointer" : "default");
 }
 

@@ -38,3 +38,8 @@ Newest entries at the bottom. Claude adds one at the end of every session.
 - **Sarosh's feedback:** still looked blocky (the crowd wall, the gear); wants to publish it someday; wants a "pause to shoot" option.
 - **Built:** Two-level arena with darker crowds, red seats, a glowing LED ad ring and roof lights. Shiny ice with faint reflections, glowing lights (bloom) and a TV-style vignette (`FANCY_GRAPHICS` switch). Realistic skate shapes, padded gloves, hockey pants. Goalie gear with flat faces: BRICKWALL pads with knee rolls, blocker, catching glove with T-trap. New menu option: ⛸️ Skate & Shoot (click the net) or ⏸️ Pause to Shoot (click to freeze, aim with the mouse, SPACE to shoot).
 - **Next:** Sarosh plays it. Publishing needs a grown-up's decision (GitHub Pages or itch.io).
+
+## 2026-11-17 — TV-style presentation
+- **Built:** Instant replay in slow motion after goals (click to skip), the net ripples when the puck hits it, skate-carving and stickhandling sounds, a hockey-stop sound, skate marks left on the ice, and a camera swoop before each attempt.
+- **Learned:** A replay works by saving a "snapshot" of the game every frame and playing them back slower.
+- **Next:** Sarosh says the arena is good now, but the players still don't look real enough.
