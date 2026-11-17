@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sarosh's Hockey Shootout</title>
+  <style>
+    /* This part (CSS) decides how the web page LOOKS */
+    body { background: #1b2a3a; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    canvas { border: 6px solid #e8e8e8; border-radius: 40px; }
+  </style>
+</head>
+<body>
+
+  <!-- The canvas is like a blank whiteboard that our code draws on -->
+  <canvas id="rink" width="900" height="500"></canvas>
+
+  <script>
+    // ===== This part (JavaScript) is the actual CODE =====
+    // Every line is an instruction. The computer reads them from top to bottom.
+
+    // 1. SETTINGS: numbers and colors you can change!
+    const SETTINGS = {
+      iceColor: "#f4f9ff",      // the ice
+      blueLineColor: "#1f4fbf", // the blue line
+      redLineColor: "#d22",     // the goal line
+      creaseColor: "#9fd3ff"    // the blue goalie crease
+    };
+
+    // 2. GET THE WHITEBOARD AND A MARKER
+    const canvas = document.getElementById("rink"); // find the whiteboard
+    const pen = canvas.getContext("2d");            // the "marker" we draw with
+
+    // 3. DRAW THE ICE (fill the whole board)
+    pen.fillStyle = SETTINGS.iceColor;
+    pen.fillRect(0, 0, 900, 500);   // x, y, width, height
+
+    // 4. DRAW THE BLUE LINE (on the left, where the shooter starts)
+    pen.fillStyle = SETTINGS.blueLineColor;
+    pen.fillRect(200, 0, 14, 500);
+
+    // 5. DRAW THE RED GOAL LINE (on the right, in front of the net)
+    pen.fillStyle = SETTINGS.redLineColor;
+    pen.fillRect(780, 0, 4, 500);
+
+    // 6. DRAW THE GOALIE CREASE (a half circle in front of the net)
+    pen.fillStyle = SETTINGS.creaseColor;
+    pen.beginPath();
+    pen.arc(780, 250, 60, Math.PI / 2, Math.PI * 1.5); // center x, center y, size, start, end
+    pen.fill();
+
+    // 7. DRAW THE NET (behind the goal line)
+    pen.strokeStyle = SETTINGS.redLineColor;
+    pen.lineWidth = 5;
+    pen.strokeRect(784, 215, 35, 70);
+  </script>
+
+</body>
+</html>
