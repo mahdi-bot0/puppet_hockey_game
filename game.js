@@ -1190,7 +1190,7 @@ function rippleNet(dt) {
 let state = "menu";
 let chosenMove = "wrist";
 let defending = false;     // true = the other team shoots and YOU are the goalie
-let goalieView = "behind"; // "behind" = camera behind your goalie, "first" = see through his eyes
+let goalieView = "first";  // "first" = see through your goalie's eyes (Sarosh's favorite!), "behind" = camera behind your goalie
 let savedMove = "wrist", ai = null;
 const myGlove = { x: 1.3, y: 3, wantX: 1.3, wantY: 3 };   // where your glove is (x is measured from the goalie's middle)
 let aimMode = "skate";   // "skate" = Skate & Shoot (click to shoot)   "pause" = Pause to Shoot (click, aim, press SPACE)
