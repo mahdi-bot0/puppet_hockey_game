@@ -9,24 +9,31 @@ _TBD — Sarosh picks!_
 A **hockey shootout** game with real-life shootout moves. The shooter skates in from center ice and tries to beat the goalie.
 
 ## Teams and players
-_Invent our own team names, colors and players._
+- **Shooter:** royal blue + orange jersey (Islanders-style colors), number 11
+- **Goalie:** blue + red + white jersey (Rangers-style colors)
+- No real team names or logos. Sarosh can invent team names!
 
 ## Controls
-_Which keys move the player and shoot? (e.g. Arrow keys + Space, or W A S D for player 2)_
+- Pick your move (Wrist Shot or Deke) on the menu, *before the whistle*
+- Arrow keys: left/right to steer, up = faster, down = slower
+- Click inside the net where you want to shoot
 
 ## To-do list (small steps, in order)
 - [x] Draw the rink (half rink: ice, blue line, goal line, crease, net)
-- [ ] Draw the shooter and the puck
-- [ ] Move the shooter with the keyboard (puck stays on the stick)
-- [ ] Shoot! (puck flies toward where you aim)
-- [ ] Add a goalie who moves side to side
-- [ ] Goal or save? Detect it and show it on screen
+- [x] Draw the shooter and the puck
+- [x] Move the shooter with the keyboard (puck stays on the stick)
+- [x] Shoot! (puck flies toward where you aim)
+- [x] Add a goalie who moves side to side
+- [x] Goal or save? Detect it and show it on screen
 - [ ] Shootout rules: 3 shooters each, then sudden death
-- [ ] Shot types: wrist shot, slap shot, backhand
-- [ ] Dekes: forehand-backhand deke, five-hole, spin-o-rama, the "lacrosse" move
+- [x] Wrist shot
+- [x] Deke (fake one way, shoot the other)
+- [ ] More shot types: slap shot, backhand
+- [ ] More dekes: five-hole, spin-o-rama, the "lacrosse" move
 - [ ] Shoot high or low (blocker side / glove side)
 - [ ] Smarter goalie (pokecheck, butterfly, gets tricked by dekes)
-- [ ] Sounds (stick hit, goal horn, crowd)
+- [x] Sounds: whistle, goal horn, save thud, post PING
+- [ ] Crowd cheering sound
 - [ ] Start screen, teams, and a winner screen
 - [ ] Sarosh's own ideas: ...
 
