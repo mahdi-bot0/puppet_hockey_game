@@ -29,6 +29,10 @@ This project's memory file. Claude reads it at the start of every session in thi
 - The game opens by double-clicking `index.html` in a browser.
 - Keep code readable for a kid: clear names (`puckSpeed`, not `ps`), short functions, a comment above each part.
 
+## Where the project lives
+- GitHub: https://github.com/mahdi-bot0/puppet_hockey_game
+- On the family Mac: `/Users/family/Documents/github/puppet_hockey_game`
+
 ## Project files
 - `index.html` — the game
 - `docs/game-plan.md` — Sarosh's game ideas and the to-do list (the game design "playbook")
