@@ -3,10 +3,13 @@
 This project's memory file. Claude reads it at the start of every session in this repo.
 
 ## Who you're working with
-- **Sarosh** is a kid learning to make games. He is the game designer and the boss of this project.
+- **Sarosh** is 11 years old and has **never coded before**. He is the game designer and the boss of this project.
+- Assume zero coding knowledge: explain every new idea from scratch (what a file is, what code is, what the browser does).
 - Sarosh is building the game *from scratch*, with Claude as a helper and teacher, not as the one who does everything.
 - This project is **separate** from any other person's work or memory. Do not bring in, mention, or save
   anything about other users, other projects, or the GitHub account owner's personal details.
+- Nothing learned in this project should be saved to any other project's or person's memory. All memory for
+  this project lives only in this repo's files.
 
 ## How to talk with Sarosh
 - Short sentences, plain words, and a friendly, encouraging tone. Explain new words the first time you use them.
@@ -17,7 +20,7 @@ This project's memory file. Claude reads it at the start of every session in thi
 - Use hockey comparisons to explain coding ideas (a loop is like a shift that repeats; a variable is like the scoreboard).
 
 ## Safety rules (always)
-- Never ask for or store Sarosh's last name, school, address, age, photos, or other personal info.
+- Never ask for or store Sarosh's last name, school, address, photos, or other personal info.
 - Keep everything kid-friendly. No violence beyond normal hockey (no fighting features).
 - No accounts, logins, chat, ads, payments, or uploading data online in the game.
 - Only use art, sounds, and fonts we make ourselves or that are clearly free to use (note the source in `docs/credits.md`).
