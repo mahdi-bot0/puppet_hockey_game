@@ -4,53 +4,289 @@
   <title>Sarosh's Hockey Shootout</title>
   <style>
     /* This part (CSS) decides how the web page LOOKS */
-    body { background: #1b2a3a; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
-    canvas { border: 6px solid #e8e8e8; border-radius: 40px; }
+    body { background: #0b1118; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    canvas { border-radius: 12px; box-shadow: 0 10px 40px black; max-width: 100%; }
   </style>
 </head>
 <body>
 
   <!-- The canvas is like a blank whiteboard that our code draws on -->
-  <canvas id="rink" width="900" height="500"></canvas>
+  <canvas id="rink" width="900" height="600"></canvas>
 
   <script>
-    // ===== This part (JavaScript) is the actual CODE =====
-    // Every line is an instruction. The computer reads them from top to bottom.
+    // =====================================================================
+    //  SAROSH'S HOCKEY SHOOTOUT
+    //  The trick for 3D: things FAR away look SMALLER.
+    //  We imagine a real rink measured in FEET, then a "camera" turns it
+    //  into a picture on the screen.
+    // =====================================================================
 
-    // 1. SETTINGS: numbers and colors you can change!
-    const SETTINGS = {
-      iceColor: "#f4f9ff",      // the ice
-      blueLineColor: "#1f4fbf", // the blue line
-      redLineColor: "#d22",     // the goal line
-      creaseColor: "#9fd3ff"    // the blue goalie crease
+    // ----- 1. SETTINGS: numbers you can change! -----
+    const CAMERA = {
+      z: 3,        // where the camera stands (feet along the rink). Bigger = closer to the net
+      height: 9,   // how high the camera is (feet). Try 20 for a TV view!
+      zoom: 900,   // how zoomed in the camera is
+      horizon: 200 // where the far end of the rink sits on screen (pixels from the top)
     };
 
-    // 2. GET THE WHITEBOARD AND A MARKER
-    const canvas = document.getElementById("rink"); // find the whiteboard
-    const pen = canvas.getContext("2d");            // the "marker" we draw with
+    // Real NHL rink sizes, in feet
+    const RINK = {
+      halfWidth: 42.5,  // the rink is 85 feet wide
+      endBoards: 100,   // the end boards are 100 feet from center ice
+      cornerRadius: 28, // how round the corners are
+      goalLine: 89,     // the red goal line
+      blueLine: 25,     // the blue line
+      boardHeight: 3.5, // the boards are 3.5 feet tall
+      glassHeight: 8    // the glass goes up to 8 feet
+    };
 
-    // 3. DRAW THE ICE (fill the whole board)
-    pen.fillStyle = SETTINGS.iceColor;
-    pen.fillRect(0, 0, 900, 500);   // x, y, width, height
+    const COLORS = {
+      ice: "#eef6fb",
+      red: "#c8102e",
+      blue: "#0b3fa8",
+      crease: "#7cc4f2",
+      boards: "#f7f7f2",
+      kickplate: "#f2c230" // the yellow strip at the bottom of the boards
+    };
 
-    // 4. DRAW THE BLUE LINE (on the left, where the shooter starts)
-    pen.fillStyle = SETTINGS.blueLineColor;
-    pen.fillRect(200, 0, 14, 500);
+    // ----- 2. GET THE WHITEBOARD AND A MARKER -----
+    const canvas = document.getElementById("rink");
+    const pen = canvas.getContext("2d");
+    const W = canvas.width;
+    const H = canvas.height;
 
-    // 5. DRAW THE RED GOAL LINE (on the right, in front of the net)
-    pen.fillStyle = SETTINGS.redLineColor;
-    pen.fillRect(780, 0, 4, 500);
+    // ----- 3. THE 3D MAGIC: turn a real spot (feet) into a screen spot (pixels) -----
+    // x = left/right, y = up/down (height), z = how far away
+    function toScreen(x, y, z) {
+      const distance = z - CAMERA.z;          // how far the spot is from the camera
+      const scale = CAMERA.zoom / distance;   // far away = small scale, close = big scale
+      return {
+        x: W / 2 + x * scale,
+        y: CAMERA.horizon + (CAMERA.height - y) * scale
+      };
+    }
 
-    // 6. DRAW THE GOALIE CREASE (a half circle in front of the net)
-    pen.fillStyle = SETTINGS.creaseColor;
-    pen.beginPath();
-    pen.arc(780, 250, 60, Math.PI / 2, Math.PI * 1.5); // center x, center y, size, start, end
-    pen.fill();
+    // How wide is the rink at a certain distance? (it gets narrower in the round corners)
+    function rinkHalfWidthAt(z) {
+      const cornerStart = RINK.endBoards - RINK.cornerRadius;
+      if (z <= cornerStart) return RINK.halfWidth;
+      const into = z - cornerStart;
+      return RINK.halfWidth - RINK.cornerRadius + Math.sqrt(RINK.cornerRadius ** 2 - into ** 2);
+    }
 
-    // 7. DRAW THE NET (behind the goal line)
-    pen.strokeStyle = SETTINGS.redLineColor;
-    pen.lineWidth = 5;
-    pen.strokeRect(784, 215, 35, 70);
+    // The outline of the ice: left side, round corners, end boards, right side
+    function rinkOutline() {
+      const points = [];
+      const nearZ = CAMERA.z + 4;
+      for (let z = nearZ; z <= RINK.endBoards; z += 1) points.push({ x: -rinkHalfWidthAt(z), z: z });
+      for (let z = RINK.endBoards; z >= nearZ; z -= 1) points.push({ x: rinkHalfWidthAt(z), z: z });
+      return points;
+    }
+
+    // Draw a flat shape lying on the ice
+    function iceShape(points, color) {
+      pen.fillStyle = color;
+      pen.beginPath();
+      points.forEach((p, i) => {
+        const s = toScreen(p.x, 0, p.z);
+        if (i === 0) pen.moveTo(s.x, s.y); else pen.lineTo(s.x, s.y);
+      });
+      pen.closePath();
+      pen.fill();
+    }
+
+    // A painted line across the ice (like the blue line or goal line)
+    function iceLine(z, thickness, color) {
+      const w = rinkHalfWidthAt(z + thickness);
+      iceShape([{ x: -w, z: z }, { x: w, z: z }, { x: w, z: z + thickness }, { x: -w, z: z + thickness }], color);
+    }
+
+    // A painted ring on the ice (like a face-off circle)
+    function iceRing(cx, cz, radius, thickness, color) {
+      const points = [];
+      for (let a = 0; a <= 360; a += 5) points.push({ x: cx + Math.cos(a * Math.PI / 180) * radius, z: cz + Math.sin(a * Math.PI / 180) * radius });
+      for (let a = 360; a >= 0; a -= 5) points.push({ x: cx + Math.cos(a * Math.PI / 180) * (radius - thickness), z: cz + Math.sin(a * Math.PI / 180) * (radius - thickness) });
+      iceShape(points, color);
+    }
+
+    // A random-number maker that gives the SAME "random" numbers every time
+    let seed = 7;
+    function random() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+
+    // ----- 4. DRAW THE CROWD (behind the glass) -----
+    function drawCrowd() {
+      const sky = pen.createLinearGradient(0, 0, 0, CAMERA.horizon + 90);
+      sky.addColorStop(0, "#05080d");
+      sky.addColorStop(1, "#1d2733");
+      pen.fillStyle = sky;
+      pen.fillRect(0, 0, W, H);
+
+      // Arena lights in the roof
+      for (let i = 0; i < 6; i++) {
+        const glow = pen.createRadialGradient(90 + i * 144, 18, 0, 90 + i * 144, 18, 60);
+        glow.addColorStop(0, "rgba(255,255,240,0.9)");
+        glow.addColorStop(1, "rgba(255,255,240,0)");
+        pen.fillStyle = glow;
+        pen.fillRect(0, 0, W, 90);
+      }
+
+      // Fans: lots of little colored dots
+      const shirtColors = ["#c8102e", "#0b3fa8", "#ffffff", "#f2c230", "#333", "#888"];
+      for (let row = 0; row < 14; row++) {
+        const y = 70 + row * 12;
+        for (let x = 0; x < W; x += 9) {
+          pen.fillStyle = shirtColors[Math.floor(random() * shirtColors.length)];
+          pen.globalAlpha = 0.35 + row * 0.03;
+          pen.fillRect(x + random() * 4, y + random() * 4, 5, 6);
+        }
+      }
+      pen.globalAlpha = 1;
+    }
+
+    // ----- 5. DRAW THE BOARDS AND GLASS -----
+    function drawWall(fromHeight, toHeight, color) {
+      const outline = rinkOutline();
+      pen.fillStyle = color;
+      pen.beginPath();
+      outline.forEach((p, i) => {
+        const s = toScreen(p.x, toHeight, p.z);
+        if (i === 0) pen.moveTo(s.x, s.y); else pen.lineTo(s.x, s.y);
+      });
+      for (let i = outline.length - 1; i >= 0; i--) {
+        const s = toScreen(outline[i].x, fromHeight, outline[i].z);
+        pen.lineTo(s.x, s.y);
+      }
+      pen.closePath();
+      pen.fill();
+    }
+
+    function drawBoards() {
+      drawWall(RINK.boardHeight, RINK.glassHeight, "rgba(200,225,240,0.18)"); // the glass (see-through!)
+      drawWall(0, RINK.boardHeight, COLORS.boards);                         // the white boards
+      drawWall(0, 0.6, COLORS.kickplate);                                   // the yellow kickplate
+      drawWall(RINK.boardHeight - 0.15, RINK.boardHeight, "#2a2a2a");       // the dark rail on top
+    }
+
+    // ----- 6. DRAW THE ICE -----
+    function drawIce() {
+      // The ice surface, a little bluer far away
+      const top = toScreen(0, 0, RINK.endBoards).y;
+      const iceColor = pen.createLinearGradient(0, top, 0, H);
+      iceColor.addColorStop(0, "#d8e7f1");
+      iceColor.addColorStop(1, COLORS.ice);
+      iceShape(rinkOutline(), iceColor);
+
+      // From now on, only paint INSIDE the ice
+      pen.save();
+      pen.beginPath();
+      rinkOutline().forEach((p, i) => {
+        const s = toScreen(p.x, 0, p.z);
+        if (i === 0) pen.moveTo(s.x, s.y); else pen.lineTo(s.x, s.y);
+      });
+      pen.clip();
+
+      // Painted lines (they're under the ice, so they look a bit faded)
+      pen.globalAlpha = 0.85;
+      iceLine(RINK.blueLine, 1, COLORS.blue);
+      iceLine(RINK.goalLine, 0.5, COLORS.red);
+      iceRing(-22, 69, 15, 0.4, COLORS.red);        // left face-off circle
+      iceRing(22, 69, 15, 0.4, COLORS.red);         // right face-off circle
+      iceRing(-22, 69, 1, 1, COLORS.red);           // face-off dots
+      iceRing(22, 69, 1, 1, COLORS.red);
+
+      // The goalie crease: a light blue half circle in front of the net
+      const crease = [];
+      for (let a = 180; a <= 360; a += 5) crease.push({ x: Math.cos(a * Math.PI / 180) * 6, z: RINK.goalLine + Math.sin(a * Math.PI / 180) * 6 });
+      iceShape(crease, COLORS.crease);
+      pen.globalAlpha = 1;
+
+      // Shiny reflections of the arena lights on the ice
+      for (let i = 0; i < 5; i++) {
+        const spot = toScreen(-32 + i * 16, 0, 55 + (i % 2) * 15);
+        pen.save();
+        pen.translate(spot.x, spot.y);
+        pen.scale(1, 2.2);  // stretch it tall, like real reflections
+        const shine = pen.createRadialGradient(0, 0, 0, 0, 0, 45);
+        shine.addColorStop(0, "rgba(255,255,255,0.75)");
+        shine.addColorStop(1, "rgba(255,255,255,0)");
+        pen.fillStyle = shine;
+        pen.fillRect(-45, -45, 90, 90);
+        pen.restore();
+      }
+
+      // Skate scratches: curvy marks from skaters during warm-up
+      pen.strokeStyle = "rgba(150,175,195,0.35)";
+      pen.lineWidth = 1;
+      for (let i = 0; i < 260; i++) {
+        let x = (random() - 0.5) * 80;
+        let z = CAMERA.z + 6 + random() * 90;
+        let direction = random() * Math.PI * 2;
+        pen.beginPath();
+        for (let step = 0; step < 6; step++) {
+          const s = toScreen(x, 0, z);
+          if (step === 0) pen.moveTo(s.x, s.y); else pen.lineTo(s.x, s.y);
+          direction += (random() - 0.5) * 0.4;
+          x += Math.cos(direction) * 1.5;
+          z += Math.sin(direction) * 1.5;
+        }
+        pen.stroke();
+      }
+
+      // Snow piled up along the boards
+      pen.globalAlpha = 0.5;
+      pen.lineWidth = 6;
+      pen.strokeStyle = "white";
+      pen.beginPath();
+      rinkOutline().forEach((p, i) => {
+        const s = toScreen(p.x, 0, p.z);
+        if (i === 0) pen.moveTo(s.x, s.y); else pen.lineTo(s.x, s.y);
+      });
+      pen.stroke();
+      pen.globalAlpha = 1;
+
+      pen.restore(); // stop painting only inside the ice
+    }
+
+    // ----- 7. DRAW THE NET -----
+    function drawNet() {
+      const goalHalfWidth = 3, goalHeight = 4, goalDepth = 3.3, gz = RINK.goalLine;
+
+      // The white mesh: lines from the posts to the back of the net
+      pen.strokeStyle = "rgba(255,255,255,0.7)";
+      pen.lineWidth = 1;
+      for (let i = 0; i <= 12; i++) {
+        const x = -goalHalfWidth + i * 0.5;
+        const front = toScreen(x, goalHeight, gz);
+        const back = toScreen(x * 0.8, 0, gz + goalDepth);
+        pen.beginPath(); pen.moveTo(front.x, front.y); pen.lineTo(back.x, back.y); pen.stroke();
+      }
+      for (let h = 0; h <= goalHeight; h += 0.5) {
+        const left = toScreen(-goalHalfWidth, h, gz + goalDepth * (1 - h / goalHeight));
+        const right = toScreen(goalHalfWidth, h, gz + goalDepth * (1 - h / goalHeight));
+        pen.beginPath(); pen.moveTo(left.x, left.y); pen.lineTo(right.x, right.y); pen.stroke();
+      }
+
+      // The red posts and crossbar
+      const bottomLeft = toScreen(-goalHalfWidth, 0, gz);
+      const topLeft = toScreen(-goalHalfWidth, goalHeight, gz);
+      const topRight = toScreen(goalHalfWidth, goalHeight, gz);
+      const bottomRight = toScreen(goalHalfWidth, 0, gz);
+      pen.strokeStyle = COLORS.red;
+      pen.lineWidth = 4;
+      pen.lineJoin = "round";
+      pen.beginPath();
+      pen.moveTo(bottomLeft.x, bottomLeft.y);
+      pen.lineTo(topLeft.x, topLeft.y);
+      pen.lineTo(topRight.x, topRight.y);
+      pen.lineTo(bottomRight.x, bottomRight.y);
+      pen.stroke();
+    }
+
+    // ----- 8. PUT IT ALL TOGETHER (far things first, close things last!) -----
+    drawCrowd();
+    drawBoards();
+    drawIce();
+    drawNet();
   </script>
 
 </body>
