@@ -43,7 +43,7 @@
     button:hover { background: #f47d30; box-shadow: 0 4px 0 #b3541a; }
     .modes { display: flex; gap: 10px; justify-content: center; margin-bottom: 14px; }
     .modes button { font-size: 18px; padding: 10px 18px; background: #26364d; box-shadow: 0 4px 0 #111b28; }
-    .modes button.picked { background: #f47d30; box-shadow: 0 4px 0 #b3541a; }
+    .modes button.picked, #viewButtons button.picked { background: #f47d30; box-shadow: 0 4px 0 #b3541a; }
     button .icon { display: block; font-size: 28px; }
     button small { display: block; font-size: 12px; font-weight: 600; margin-top: 4px; opacity: 0.9; }
   </style>
@@ -62,8 +62,9 @@
       <h1>SHOOTOUT!</h1>
       <p id="roundText">Round 1 — choose your move before the whistle</p>
       <div class="modes" id="modeButtons"></div>
+      <div class="modes" id="viewButtons"></div>
       <div class="buttons" id="moveButtons"></div>
-      <p class="help">⬅️ ➡️ steer · ⬆️ faster · ⬇️ slower · Skate &amp; Shoot: click the net · Pause to Shoot: click, aim, press SPACE</p>
+      <p class="help">⬅️ ➡️ steer · ⬆️ faster · ⬇️ slower · Skate &amp; Shoot: click the net · Pause to Shoot: click, aim, press SPACE<br>In goal: mouse = glove · hold SPACE = butterfly</p>
     </div>
   </div>
 

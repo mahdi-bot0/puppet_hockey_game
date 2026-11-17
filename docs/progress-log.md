@@ -43,3 +43,8 @@ Newest entries at the bottom. Claude adds one at the end of every session.
 - **Built:** Instant replay in slow motion after goals (click to skip), the net ripples when the puck hits it, skate-carving and stickhandling sounds, a hockey-stop sound, skate marks left on the ice, and a camera swoop before each attempt.
 - **Learned:** A replay works by saving a "snapshot" of the game every frame and playing them back slower.
 - **Next:** Sarosh says the arena is good now, but the players still don't look real enough.
+
+## 2026-11-17 — Goalie mode!
+- **Sarosh's idea:** after you shoot, you play goalie against their shooter. The mouse moves the glove, SPACE is the butterfly, the blocker is automatic, and there's an option for first person.
+- **Built:** Real back-and-forth shootout: you shoot, then the computer's shooter (red/white/blue #21) skates in on YOUR goalie (blue/orange #35) and picks a move and a spot. Their shots are a bit slower. Mouse = glove (catch it for a GLOVE SAVE), hold SPACE = butterfly, blocker moves by itself. Menu option: 🎥 Goalie behind view or 👀 first person. The tracker now uses real results for both teams, with sudden death.
+- **Learned:** Teams can swap uniforms by repainting materials (a list of "kit change" functions).

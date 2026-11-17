@@ -43,6 +43,11 @@ const MOVES = {
   lacrosse: { name: "Lacrosse",    icon: "🥍", info: "Scoop it up and tuck it",   prep: 0.65, speed: 48, lacrosse: true, react: 0.12 }
 };
 
+// When YOU are the goalie, the teams swap uniforms: their shooter wears red/white/blue, your goalie wears blue/orange
+const SKATER_KITS = { mine: SHOOTER_TEAM, theirs: Object.assign({}, GOALIE_TEAM, { number: "21", pants: "#0a2a6e" }) };
+const GOALIE_KITS = { mine: Object.assign({}, SHOOTER_TEAM, { number: "35", pads: "#f4f4f4" }), theirs: GOALIE_TEAM };
+const DEFENSE_PUCK_SPEED = 0.72;   // their shots are a bit slower, so you have time to react
+
 const SHOOTOUT_ROUNDS = 3;
 const SKATE = { startSpeed: 16, minSpeed: 8, maxSpeed: 24, sideSpeed: 10 };
 const GOALIE_SETTINGS = { homeZ: 86.4, speed: 6.2, slideSpeed: 9, reactionTime: 0.15 };   // make speed bigger for a harder goalie!
@@ -508,6 +513,44 @@ let netMesh = null, netRest = null, netWobble = 0, netHitX = 0, netHitY = 0;   /
 
 
 // ----- 6. THE PLAYERS -----
+// Uniforms that can change: every piece registers a little function that repaints it for a team
+const kitChanges = [];
+function onKit(change) { kitChanges.push(change); }
+const kitTextures = {};
+function kitTexture(key, make) { return kitTextures[key] || (kitTextures[key] = make()); }
+function dressTeams() {
+  const skaterKit = defending ? SKATER_KITS.theirs : SKATER_KITS.mine;
+  const goalieKit = defending ? GOALIE_KITS.mine : GOALIE_KITS.theirs;
+  kitChanges.forEach(change => change(skaterKit, goalieKit));
+}
+function backNumberTexture(team) {
+  return kitTexture("back" + team.number + team.stripe, () => paintTexture(256, 256, (ctx, w, h) => {
+    ctx.font = "900 170px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.lineWidth = 14; ctx.strokeStyle = team.stripe; ctx.strokeText(team.number, w / 2, h / 2);
+    ctx.fillStyle = "white"; ctx.fillText(team.number, w / 2, h / 2);
+  }));
+}
+function helmetNumberTexture(team) {
+  return kitTexture("helmet" + team.number, () => paintTexture(128, 96, (ctx, w, h) => {
+    ctx.font = "900 72px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "white"; ctx.fillText(team.number, w / 2, h / 2 + 4);
+  }));
+}
+function padTexture(T) {
+  return kitTexture("pads" + T.number, () => {
+    const t = paintTexture(512, 1024, (ctx, w, h) => {
+      ctx.fillStyle = T.pads; ctx.fillRect(0, 0, w, h);
+      [[0.14, 0.05, T.stripe], [0.2, 0.05, T.jersey], [0.55, 0.05, T.stripe], [0.61, 0.05, T.jersey], [0.86, 0.04, T.stripe]].forEach(([y, hh, c]) => { ctx.fillStyle = c; ctx.fillRect(0, y * h, w, hh * h); });
+      ctx.save(); ctx.translate(w / 2, h * 0.38); ctx.rotate(-Math.PI / 2);   // brand name down the front of the pad
+      ctx.font = "italic 900 110px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = T.jersey; ctx.fillText("BRICKWALL", 0, 0); ctx.restore();
+    });
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(1 / 0.9, 1 / 2.35);    // fit the picture onto the pad's front
+    t.offset.set(0.5, 0.5);
+    return t;
+  });
+}
 // Jersey "sticker": stripes and a number
 function jerseyTexture(team, isGoalie) {
   return paintTexture(512, 512, (ctx, w, h) => {
@@ -527,6 +570,10 @@ function jerseyTexture(team, isGoalie) {
     ctx.strokeText(team.number, w / 2, y);
     ctx.fillStyle = "white";
     ctx.fillText(team.number, w / 2, y);
+    if (isGoalie) {                       // a big number on the goalie's back too (drawn on both edges so it joins up)
+      ctx.font = "900 110px Arial";
+      [0, w].forEach(x => { ctx.strokeText(team.number, x, h * 0.55); ctx.fillText(team.number, x, h * 0.55); });
+    }
   });
 }
 function stripeTexture(base, stripes) {
@@ -658,12 +705,10 @@ function makeHelmet(head, T) {
   const strap = addMesh(head, new THREE.TorusGeometry(0.3, 0.012, 6, 24, Math.PI), dark, 0, -0.13, -0.04);                   // chin strap
   strap.rotation.set(0.95, 0, Math.PI);
   const sticker = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.14), new THREE.MeshStandardMaterial({                         // number on the back
-    map: paintTexture(128, 96, (ctx, w, h) => {
-      ctx.font = "900 72px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillStyle = "white"; ctx.fillText(T.number, w / 2, h / 2 + 4);
-    }), transparent: true, polygonOffset: true, polygonOffsetFactor: -4 }));
+    map: helmetNumberTexture(T), transparent: true, polygonOffset: true, polygonOffsetFactor: -4 }));
   sticker.position.set(0, -0.02, r * 1.07);
   head.add(sticker);
+  onKit(kit => { shell.color.set(kit.jersey); sticker.material.map = helmetNumberTexture(kit); });
 }
 
 // THE SHOOTER (an athletic skater in full gear)
@@ -726,6 +771,11 @@ function makeShooter() {
 
   const { shaft, knob, blade } = makeStick(root);
 
+  onKit(kit => {
+    m.jersey.color.set(kit.jersey); m.glove.color.set(kit.jersey);
+    m.socks.map = kitTexture("socks" + kit.number, () => stripeTexture(kit.jersey, [[0.30, 0.06, "white"], [0.36, 0.1, kit.stripe], [0.46, 0.06, "white"]]));
+    m.cuff.map = kitTexture("cuff" + kit.number, () => stripeTexture(kit.stripe, [[0.35, 0.25, "white"]]));
+  });
   return { root, torso, head, legs, arms, shaft, knob, blade };
 }
 
@@ -737,21 +787,12 @@ function makeGoalie() {
   const jersey = material(T.jersey, 0.7);
   const white = material("#f4f4f4", 0.45);
   const redTrim = material(T.stripe, 0.5);
-  const padMat = material("#ffffff", 0.5, { map: paintTexture(512, 1024, (ctx, w, h) => {
-    ctx.fillStyle = T.pads; ctx.fillRect(0, 0, w, h);
-    [[0.14, 0.05, T.stripe], [0.2, 0.05, T.jersey], [0.55, 0.05, T.stripe], [0.61, 0.05, T.jersey], [0.86, 0.04, T.stripe]].forEach(([y, hh, c]) => { ctx.fillStyle = c; ctx.fillRect(0, y * h, w, hh * h); });
-    ctx.save(); ctx.translate(w / 2, h * 0.38); ctx.rotate(-Math.PI / 2);   // brand name down the front of the pad
-    ctx.font = "italic 900 110px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillStyle = T.jersey; ctx.fillText("BRICKWALL", 0, 0); ctx.restore();
-  }) });
-  padMat.map.wrapS = padMat.map.wrapT = THREE.RepeatWrapping;
-  padMat.map.repeat.set(1 / 0.9, 1 / 2.35);    // fit the picture onto the pad's front
-  padMat.map.offset.set(0.5, 0.5);
+  const padMat = material("#ffffff", 0.5, { map: padTexture(T) });
 
   const torso = new THREE.Group();
   root.add(torso);
   const chest = addMesh(torso, lathe([[0.6, 0.1], [0.6, 0.5], [0.62, 0.9], [0.68, 1.22], [0.68, 1.42], [0.54, 1.62], [0.3, 1.75], [0.01, 1.78]]), material("#ffffff", 0.7, { map: jerseyTexture(T, true) }));
-  chest.scale.z = 0.78;
+  chest.scale.set(1.05, 1, 0.98);   // big enough to cover the chest protector, front and back
   chest.rotation.y = Math.PI;
   addMesh(torso, lathe([[0.6, -0.8], [0.68, -0.5], [0.68, -0.1], [0.6, 0.25], [0.01, 0.3]]), jersey).scale.z = 0.8;
   [-1, 1].forEach(s => addMesh(torso, new THREE.SphereGeometry(0.34, 18, 12), jersey, s * 0.72, 1.42, 0));
@@ -760,7 +801,8 @@ function makeGoalie() {
   head.position.set(0, 2.05, 0.04);
   torso.add(head);
   addMesh(head, new THREE.SphereGeometry(0.42, 28, 20), white).scale.set(0.95, 1.08, 1.05);
-  addMesh(head, new THREE.SphereGeometry(0.44, 28, 12, 0, Math.PI * 2, 0, Math.PI / 2.4), material(T.jersey, 0.2, { metalness: 0.3 })).scale.set(0.95, 1.08, 1.05);
+  const dome = material(T.jersey, 0.2, { metalness: 0.3 });
+  addMesh(head, new THREE.SphereGeometry(0.44, 28, 12, 0, Math.PI * 2, 0, Math.PI / 2.4), dome).scale.set(0.95, 1.08, 1.05);
   const cage = material("#444", 0.35, { metalness: 0.7 });
   for (let i = -2; i <= 2; i++) addMesh(head, new THREE.BoxGeometry(0.025, 0.42, 0.025), cage, i * 0.09, -0.12, 0.42);
   [-0.22, -0.06].forEach(y => addMesh(head, new THREE.BoxGeometry(0.42, 0.025, 0.025), cage, 0, y, 0.43));
@@ -770,7 +812,8 @@ function makeGoalie() {
   addMesh(blocker, roundedBox(0.65, 1.1, 0.22, 0.08), white);
   addMesh(blocker, roundedBox(0.67, 0.1, 0.24, 0.04), redTrim, 0, 0.47, 0);
   addMesh(blocker, roundedBox(0.67, 0.1, 0.24, 0.04), redTrim, 0, -0.47, 0);
-  addMesh(blocker, roundedBox(0.4, 0.5, 0.06, 0.05), material(T.jersey, 0.5), 0, 0, 0.11);   // logo patch
+  const logo = material(T.jersey, 0.5);
+  addMesh(blocker, roundedBox(0.4, 0.5, 0.06, 0.05), logo, 0, 0, 0.11);   // logo patch
   const stickMat = material("#2a1f16", 0.45);
   placeBetween(addMesh(blocker, new THREE.BoxGeometry(0.1, 1, 0.07), stickMat), V(0.05, -0.3, 0.1), V(0.4, -1.0, 0.3));
   placeBetween(addMesh(blocker, new THREE.BoxGeometry(0.3, 1, 0.06), stickMat), V(0.4, -1.0, 0.3), V(0.55, -2.55, 0.45));
@@ -795,6 +838,11 @@ function makeGoalie() {
   });
   const arms = [-1, 1].map(() => ({ upper: addMesh(root, taper(0.26, 0.22), jersey), fore: addMesh(root, taper(0.22, 0.2), jersey), elbow: addMesh(root, new THREE.SphereGeometry(0.24, 14, 10), jersey) }));
 
+  onKit((skaterKit, kit) => {
+    jersey.color.set(kit.jersey); redTrim.color.set(kit.stripe); dome.color.set(kit.jersey); logo.color.set(kit.jersey);
+    chest.material.map = kitTexture("goalieChest" + kit.number, () => jerseyTexture(kit, true));
+    padMat.map = padTexture(kit);
+  });
   return { root, torso, head, blocker, glove, legs, arms };
 }
 
@@ -903,11 +951,7 @@ function setupRealPlayer(gltf) {
   real.headTop = bone("HeadTop_End");
   // the jersey number, curved around his back
   const number = new THREE.Mesh(new THREE.CylinderGeometry(0.47, 0.47, 0.85, 24, 1, true, -0.85, 1.7), new THREE.MeshStandardMaterial({
-    map: paintTexture(256, 256, (ctx, w, h) => {
-      ctx.font = "900 170px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.lineWidth = 14; ctx.strokeStyle = T.stripe; ctx.strokeText(T.number, w / 2, h / 2);
-      ctx.fillStyle = "white"; ctx.fillText(T.number, w / 2, h / 2);
-    }), transparent: true, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4 }));
+    map: backNumberTexture(T), transparent: true, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4 }));
   S.root.add(number);
   number.position.copy(toRoot(at(real.spine[2])).add(V(0, -0.08, 0.02)));
   real.spine[2].attach(number);              // jersey number on the back
@@ -916,6 +960,14 @@ function setupRealPlayer(gltf) {
   hockeyPants.scale.z = 0.8;
   hockeyPants.position.copy(toRoot(at(real.hips)).add(V(0, -0.02, 0)));
   real.hips.attach(hockeyPants);
+  onKit(kit => {                             // new uniform when the teams swap
+    model.traverse(n => {
+      if (/Shirt|Socks/.test(n.name)) n.material.color.set(kit.jersey);
+      if (/Shorts/.test(n.name)) n.material.color.set(kit.pants);
+    });
+    number.material.map = backNumberTexture(kit);
+    hockeyPants.material.map = kitTexture("pants" + kit.number, () => pantsTexture(kit));
+  });
   S.torso.visible = false;                   // hide the old shape body
 
   real.mixer = new THREE.AnimationMixer(model);
@@ -938,7 +990,7 @@ function setupRealGoalie(model, clips) {
     if (!n.isMesh) return;
     n.castShadow = true; n.receiveShadow = true; n.frustumCulled = false;
     n.material = n.material.clone();
-    if (/Shirt|Shorts|Socks/.test(n.name)) n.material.color.set(T.jersey);
+    if (/Shirt|Shorts|Socks/.test(n.name)) { n.material.color.set(T.jersey); onKit((s, kit) => n.material.color.set(kit.jersey)); }
     if (/Shirt/.test(n.name)) { n.material.map = cleanShirt(n.material.map); n.material.normalMap = null; }
     if (n.isSkinnedMesh) n.skeleton.pose();
   });
@@ -955,6 +1007,13 @@ function setupRealGoalie(model, clips) {
   R.upperArm = at(R.arms[0].up).distanceTo(at(R.arms[0].fore));
   R.foreArm = at(R.arms[0].fore).distanceTo(at(R.arms[0].hand));
   G.arms.forEach(a => [a.upper, a.fore, a.elbow].forEach(m => m.visible = false));
+  // the number on the goalie's back (curved around his back, which faces the net)
+  const number = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.8, 24, 1, true, Math.PI - 0.85, 1.7), new THREE.MeshStandardMaterial({
+    map: backNumberTexture(T), transparent: true, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4 }));
+  G.root.add(number);
+  number.position.copy(G.root.worldToLocal(at(R.spine[2]).add(V(0, -0.05, 0))));
+  R.spine[2].attach(number);
+  onKit((s, kit) => { number.material.map = backNumberTexture(kit); });
   G.root.attach(G.head);
   R.mixer = new THREE.AnimationMixer(model);
   R.mixer.clipAction(clips.find(c => c.name === "idle")).play();
@@ -1130,6 +1189,10 @@ function rippleNet(dt) {
 //   "menu" -> "ready" -> "skating" -> "move" -> "shot" -> "result" -> back to "menu"
 let state = "menu";
 let chosenMove = "wrist";
+let defending = false;     // true = the other team shoots and YOU are the goalie
+let goalieView = "behind"; // "behind" = camera behind your goalie, "first" = see through his eyes
+let savedMove = "wrist", ai = null;
+const myGlove = { x: 1.3, y: 3, wantX: 1.3, wantY: 3 };   // where your glove is (x is measured from the goalie's middle)
 let aimMode = "skate";   // "skate" = Skate & Shoot (click to shoot)   "pause" = Pause to Shoot (click, aim, press SPACE)
 let pausedAim = null;    // where you're aiming while the game is paused
 let timer = 0, clock = 0;
@@ -1272,7 +1335,34 @@ Object.keys(AIM_MODES).forEach(key => {
   $("modeButtons").appendChild(button);
 });
 
+// The two goalie cameras
+const GOALIE_VIEWS = { behind: "🎥 Goalie: behind", first: "👀 Goalie: first person" };
+Object.keys(GOALIE_VIEWS).forEach(key => {
+  const button = document.createElement("button");
+  button.textContent = GOALIE_VIEWS[key];
+  button.dataset.view = key;
+  button.addEventListener("click", () => { goalieView = key; });
+  $("viewButtons").appendChild(button);
+});
+
 const raycaster = new THREE.Raycaster();
+// YOU'RE THE GOALIE: the glove follows the mouse
+renderer.domElement.addEventListener("mousemove", e => {
+  if (!defending) return;
+  const nx = (e.clientX / window.innerWidth) * 2 - 1, ny = -(e.clientY / window.innerHeight) * 2 + 1;
+  let x, y;
+  if (goalieView === "first") {        // first person: the middle of the screen is right in front of you
+    x = goalie.x - nx * 2.9;
+    y = 2.5 + ny * 2.2;
+  } else {                             // behind: find the spot on the goal line under the mouse
+    raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
+    const hit = new THREE.Vector3();
+    if (!raycaster.ray.intersectPlane(new THREE.Plane(V(0, 0, 1), RINK.goalLine - 1), hit)) return;
+    x = hit.x; y = hit.y;
+  }
+  myGlove.wantX = clamp(x - goalie.x, -0.3, 2.6);
+  myGlove.wantY = clamp(y, 0.6, 4.3);
+});
 // Where on the net is the mouse pointing? (null if it's not on the net)
 function netSpotUnderMouse(e) {
   const mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
@@ -1304,6 +1394,7 @@ const netPlane = new THREE.Plane(V(0, 0, 1), RINK.goalLine);  // an invisible wa
 
 renderer.domElement.addEventListener("click", e => {
   startAudio();
+  if (defending && (state === "skating" || state === "move" || state === "shot" || state === "ready")) return;   // you're the goalie: no shooting!
   if (state === "skating" && aimMode === "pause") {
     // PAUSE TO SHOOT: freeze the game so you can aim
     state = "aiming";
@@ -1318,8 +1409,16 @@ renderer.domElement.addEventListener("click", e => {
   } else if (replay) {
     endReplay();                 // click to skip the replay
   } else if (state === "result") {
-    if (shootout.winner) { shootout.you = []; shootout.them = []; shootout.winner = null; }
-    state = "menu";
+    if (shootout.winner) {                                   // game over: start a new shootout
+      shootout.you = []; shootout.them = []; shootout.winner = null;
+      if (defending) endDefense();
+      state = "menu";
+    } else if (!defending) {
+      startDefense();                                        // now it's their turn to shoot: YOU are the goalie!
+    } else {
+      endDefense();
+      state = "menu";                                        // next round
+    }
   }
 });
 
@@ -1354,6 +1453,30 @@ function startAttempt() {
   state = "ready"; timer = 0;
 }
 
+// YOU'RE THE GOALIE: the computer picks a move, a lane and a spot to shoot at
+function startDefense() {
+  defending = true;
+  savedMove = chosenMove;
+  const pick = list => list[Math.floor(Math.random() * list.length)];
+  const spots = [[2.3, 3.3], [-2.3, 3.3], [2.4, 0.5], [-2.4, 0.5], [1.5, 2.2], [-1.5, 2.2], ["fivehole", 0.4], [0.6, 3.5]];
+  ai = { move: pick(["wrist", "snap", "backhand", "deke", "slap", "fivehole", "toedrag", "wrist"]),
+         lane: (Math.random() - 0.5) * 14, shootZ: 54 + Math.random() * 15, spot: pick(spots) };
+  chosenMove = ai.move;
+  dressTeams();
+  startAttempt();
+  replayDone = true;          // no replays of their goals
+  myGlove.wantX = myGlove.x = 1.3; myGlove.wantY = myGlove.y = 3;
+}
+function endDefense() {
+  defending = false;
+  chosenMove = savedMove;
+  dressTeams();
+}
+function aiTarget() {
+  const [x, y] = ai.spot;
+  return { x: x === "fivehole" ? goalie.x : x + (Math.random() - 0.5) * 0.5, y: y + (Math.random() - 0.5) * 0.4 };
+}
+
 function beginMove(target) {
   const m = MOVES[chosenMove];
   const away = target.x >= goalie.x ? -1 : 1;   // fakes go the OTHER way from where you want to shoot
@@ -1370,7 +1493,7 @@ function release() {
   puck.onStick = false;
   const distance = Math.hypot(target.x - puck.x, RINK.goalLine - puck.z);
   shot = { fromX: puck.x, fromY: puck.y, fromZ: puck.z, toX: target.x, toY: target.y, time: 0,
-           flightTime: distance / m.speed, reaction: GOALIE_SETTINGS.reactionTime + (m.react || 0),
+           flightTime: distance / (m.speed * (defending ? DEFENSE_PUCK_SPEED : 1)), reaction: GOALIE_SETTINGS.reactionTime + (m.react || 0),
            done: false, bounce: null, timeAfter: 0, fiveHole: !!m.fiveHole,
            legsOpen: goalie.butterfly < 0.5 && (Math.abs(goalie.speed) > 2.5 || !!m.fiveHole) };   // a sliding goalie can't close his legs in time
   shot.reaction += Math.random() * 0.08;   // goalies aren't robots: sometimes a bit slower
@@ -1392,6 +1515,14 @@ function checkShot() {
     if (Math.abs(shot.toX) > NET.halfWidth || y > NET.height) return { text: "Wide! Missed the net", goal: false };
     return { text: "PING! Off the post!", goal: false, post: true };
   }
+  if (defending) {                                          // YOU are the goalie
+    if (Math.hypot(shot.toX - (goalie.x + myGlove.x), y - myGlove.y) < 0.7) return { text: "GLOVE SAVE! 🧤", goal: false, caught: true };
+    if (y < 0.85 && Math.abs(dx) < 0.45) return b > 0.5 ? { text: "PAD SAVE!", goal: false } : { text: "FIVE-HOLE... THEY SCORED", goal: true };
+    if (y < 1.2 && Math.abs(dx) < (b > 0.5 ? 2.4 : 1.2)) return { text: b > 0.5 ? "BUTTERFLY SAVE! 🦋" : "PAD SAVE!", goal: false };
+    if (y < (b > 0.5 ? 3.0 : 4.0) && Math.abs(dx) < 0.85) return { text: "BIG SAVE!", goal: false };
+    if (y > 1.2 && dx < -0.5 && dx > -(0.6 + 1.3 * ready)) return { text: "BLOCKER SAVE!", goal: false };
+    return { text: "THEY SCORED!", goal: true };
+  }
   if (y < 0.85 && Math.abs(dx) < 0.45) {                   // between the legs?
     if (shot.legsOpen) return { text: "FIVE-HOLE! GOAL!", goal: true };
     return { text: b > 0.5 ? "PAD SAVE!" : "STICK SAVE!", goal: false };
@@ -1404,20 +1535,19 @@ function checkShot() {
   return { text: "GOAL!", goal: true };
 }
 
-// After your shot: the other team shoots on your goalie, then we check who's winning
+// After each shot: write it on the tracker, then check if someone has won
 function finishAttempt(scored) {
-  shootout.you.push(scored);
-  const theyScore = Math.random() < OTHER_TEAM_SCORES;
-  shootout.them.push(theyScore);
-  theirText = theyScore ? "Their shooter scored on your goalie 😬" : "Your goalie stopped their shooter! 🧤";
-  const n = shootout.you.length;
-  const mine = shootout.you.filter(Boolean).length, theirs = shootout.them.filter(Boolean).length;
-  if (n < SHOOTOUT_ROUNDS) {
-    const left = SHOOTOUT_ROUNDS - n;
-    if (mine > theirs + left) shootout.winner = "you";
-    if (theirs > mine + left) shootout.winner = "them";
-  } else if (mine !== theirs) {
-    shootout.winner = mine > theirs ? "you" : "them";
+  (defending ? shootout.them : shootout.you).push(scored);
+  theirText = "";
+  const you = shootout.you, them = shootout.them;
+  const mine = you.filter(Boolean).length, theirs = them.filter(Boolean).length;
+  if (you.length <= SHOOTOUT_ROUNDS && them.length <= SHOOTOUT_ROUNDS) {
+    // in the 3 rounds: is it already impossible to catch up?
+    if (mine > theirs + (SHOOTOUT_ROUNDS - them.length)) shootout.winner = "you";
+    if (theirs > mine + (SHOOTOUT_ROUNDS - you.length)) shootout.winner = "them";
+  }
+  if (!shootout.winner && you.length >= SHOOTOUT_ROUNDS && you.length === them.length && mine !== theirs) {
+    shootout.winner = mine > theirs ? "you" : "them";      // after a full round (or in sudden death)
   }
   if (shootout.winner === "you") crowdRoar(0.2, 3.5);
 }
@@ -1444,13 +1574,18 @@ function update(dt) {
 
   const skatingNow = state === "skating" || state === "move";
   if (skatingNow) {
-    if (keys["ArrowUp"]) shooter.speed = Math.min(SKATE.maxSpeed, shooter.speed + 12 * dt);
-    if (keys["ArrowDown"]) shooter.speed = Math.max(SKATE.minSpeed, shooter.speed - 12 * dt);
+    if (!defending && keys["ArrowUp"]) shooter.speed = Math.min(SKATE.maxSpeed, shooter.speed + 12 * dt);
+    if (!defending && keys["ArrowDown"]) shooter.speed = Math.max(SKATE.minSpeed, shooter.speed - 12 * dt);
     const slow = action && action.move.windup ? 0.6 : 1;
     shooter.z += shooter.speed * slow * dt;
     if (state === "skating") {
-      if (keys["ArrowLeft"]) shooter.x -= SKATE.sideSpeed * dt;
-      if (keys["ArrowRight"]) shooter.x += SKATE.sideSpeed * dt;
+      if (defending) {                                   // the computer skates their shooter
+        shooter.x += clamp(ai.lane - shooter.x, -6 * dt, 6 * dt);
+        if (shooter.z >= ai.shootZ) beginMove(aiTarget());
+      } else {
+        if (keys["ArrowLeft"]) shooter.x -= SKATE.sideSpeed * dt;
+        if (keys["ArrowRight"]) shooter.x += SKATE.sideSpeed * dt;
+      }
       const before = shooter.handle;
       shooter.handle = 1.1 + Math.sin(clock * 5.5) * 0.45;   // stickhandling: the puck goes side to side
       if ((before - 1.1) * (shooter.handle - 1.1) < 0) playTap();
@@ -1481,7 +1616,7 @@ function update(dt) {
   if (shooter.follow > 0) shooter.follow = Math.min(1, shooter.follow + dt * 4);
 
   // Skated in too close without shooting? The goalie poke-checks you!
-  if (state === "skating" && shooter.z > 77) {
+  if (state === "skating" && shooter.z > 77 && !defending) {
     puck.onStick = false;
     resultText = "POKE CHECK!"; resultGoal = false;
     goalie.wantButterfly = 1;
@@ -1512,7 +1647,10 @@ function update(dt) {
         shot.done = true;
         const result = checkShot();
         resultText = result.text; resultGoal = result.goal;
-        if (result.goal) { playHorn(); crowdRoar(0.17, 2.5); goalLightTimer = 3; shot.bounce = { vx: 0, vz: 6 }; netWobble = 1.2; netHitX = puck.x; netHitY = puck.y; }
+        shot.caught = !!result.caught;
+        if (defending && !result.goal) { playThud(false); crowdRoar(0.17, 2.0); shot.bounce = { vx: (Math.random() - 0.5) * 16, vz: -14 }; }
+        else if (defending && result.goal) { crowdRoar(0.05, 1.0); goalLightTimer = 3; shot.bounce = { vx: 0, vz: 6 }; netWobble = 1.2; netHitX = puck.x; netHitY = puck.y; }
+        else if (result.goal) { playHorn(); crowdRoar(0.17, 2.5); goalLightTimer = 3; shot.bounce = { vx: 0, vz: 6 }; netWobble = 1.2; netHitX = puck.x; netHitY = puck.y; }
         else if (result.post) { playThud(true); crowdRoar(0.08, 0.8); shake = 1; shot.bounce = { vx: puck.x > 0 ? 12 : -12, vz: -18 }; }
         else if (resultText.startsWith("Wide")) { crowdRoar(0.05, 0.6); shot.bounce = { vx: puck.x > 0 ? 6 : -6, vz: 14 }; }
         else { playThud(false); crowdRoar(0.06, 0.8); shot.bounce = { vx: (Math.random() - 0.5) * 20, vz: -15 }; }
@@ -1522,6 +1660,8 @@ function update(dt) {
       if (resultGoal) {
         puck.z = Math.min(RINK.goalLine + NET.depth - 0.6, puck.z + shot.bounce.vz * dt);
         puck.y = Math.max(0, puck.y - 4 * dt);
+      } else if (shot.caught) {
+        puck.x = goalie.x + myGlove.x; puck.y = myGlove.y; puck.z = goalie.z + 0.6;   // the puck is in your glove!
       } else {
         puck.x += shot.bounce.vx * dt;
         puck.z += shot.bounce.vz * dt;
@@ -1558,6 +1698,14 @@ function update(dt) {
     } else wants = goalie.x;
   }
   if ((state === "shot" && shot.done) || state === "result") wants = goalie.x;
+  if (defending) {
+    if (state === "shot") wants = goalie.x;                          // you have to make the save yourself!
+    goalie.wantButterfly = keys[" "] && state !== "result" ? 1 : 0;   // hold SPACE for the butterfly
+    goalie.wantGlove = 0;                                            // the glove follows your mouse instead
+    goalie.wantBlocker = state === "shot" && !shot.done && shot.time > shot.reaction && shot.toY >= 1.3 && shot.toX - goalie.x < -0.3 ? 1 : 0;   // blocker is automatic
+    myGlove.x += clamp(myGlove.wantX - myGlove.x, -30 * dt, 30 * dt);
+    myGlove.y += clamp(myGlove.wantY - myGlove.y, -30 * dt, 30 * dt);
+  }
   if (state === "menu" || state === "ready") { goalie.wantButterfly = goalie.wantGlove = goalie.wantBlocker = 0; }
   const step = clamp(wants - goalie.x, -speed * dt, speed * dt);
   goalie.x += step;
@@ -1699,6 +1847,7 @@ function updateGoalieModel() {
   const tx = shot ? shot.toX - goalie.x : 0, ty = shot ? shot.toY : 3;
   const gloveRest = V(1.3, lerp(2.95, 2.6, b), 0.85), blockerRest = V(-1.2, 2.75, 0.85);
   G.glove.position.copy(gloveRest).lerp(V(clamp(tx, 0.7, 2.4), clamp(ty, 1.2, 4.3), 1.1), goalie.gloveReach);
+  if (defending) G.glove.position.set(myGlove.x, myGlove.y, 1.0);   // your glove, controlled by the mouse
   G.blocker.position.copy(blockerRest).lerp(V(clamp(tx, -2.4, -0.7), clamp(ty, 2.0, 4.3), 1.1), goalie.blockerReach);
   [G.blocker, G.glove].forEach((hand, i) => {
     const s = i === 0 ? -1 : 1;
@@ -1719,6 +1868,15 @@ function updateCamera(dt) {
     const middleZ = (Math.min(shooter.z, 80) + RINK.goalLine) / 2;
     wantPos = spot(16, 5, middleZ - 3);
     wantLook = spot((shooter.x + puck.x) * 0.25, 1.8, middleZ);
+  } else if (defending && state !== "result" && state !== "menu" && goalieView === "first" && realGoalie.ready) {
+    // FIRST PERSON: see through your goalie's eyes
+    wantPos = goalieModel.head.getWorldPosition(new THREE.Vector3()).add(V(0, 0.05, 0.4));
+    wantLook = spot(puck.x, puck.y + 0.4, Math.min(puck.z, goalie.z - 3));
+    camera.position.copy(wantPos);
+  } else if (defending && state !== "result" && state !== "menu") {
+    // BEHIND YOUR GOALIE: above and behind the net
+    wantPos = spot(goalie.x * 0.6, 7, 97.5);
+    wantLook = spot(puck.x * 0.6, 1.2, Math.min(puck.z, 82));
   } else if (state === "ready" && timer < 0.7) {
     // TV-style swoop: start high up, then fly down behind the shooter
     wantPos = spot(shooter.x + 18, 26, shooter.z - 12);
@@ -1757,6 +1915,7 @@ function updateModels(dt) {
   updateShooterModel(dt);
   updateGoalieModel();
   puckModel.position.copy(spot(puck.x, puck.y + 0.042, puck.z));
+  goalieModel.head.visible = !(defending && goalieView === "first" && state !== "result" && state !== "menu");
   puckModel.visible = !(state === "result" && resultText === "POKE CHECK!");
   if (!puck.onStick && shot && !shot.done) puckModel.rotation.x += 0.4;
   const lightOn = goalLightTimer > 0 && Math.floor(goalLightTimer * 4) % 2 === 0;
@@ -1783,7 +1942,8 @@ function updateWords() {
   $("roundText").textContent = (round > SHOOTOUT_ROUNDS ? "SUDDEN DEATH! " : "Round " + round + " of " + SHOOTOUT_ROUNDS + " — ") + "choose your move before the whistle";
   $("menu").style.display = state === "menu" ? "block" : "none";
   $("moveTag").style.display = state === "menu" ? "none" : "block";
-  $("moveTag").textContent = MOVES[chosenMove].icon + " " + MOVES[chosenMove].name;
+  $("moveTag").textContent = defending ? "🥅 You're the goalie!" : MOVES[chosenMove].icon + " " + MOVES[chosenMove].name;
+  document.querySelectorAll("#viewButtons button").forEach(b => b.classList.toggle("picked", b.dataset.view === goalieView));
   let big = "", sub = "", color = "white";
   if (state === "ready") big = "Get ready...";
   if (replay) { big = ""; sub = ""; }
@@ -1796,12 +1956,15 @@ function updateWords() {
     sub = (resultText === "POKE CHECK!" ? "You got too close — shoot sooner!<br>" : "") + theirText + "<br>";
     if (shootout.winner === "you") sub += "🏆 YOU WIN THE SHOOTOUT! 🏆<br>Click for a new shootout";
     else if (shootout.winner === "them") sub += "They win this time... Click for a new shootout";
+    else if (!defending) sub += "Now YOU'RE the goalie! 🥅 Click to get in the net";
     else sub += "Click for the next round";
   }
   $("big").textContent = big;
   $("big").style.color = color;
   if ($("sub").innerHTML !== sub) $("sub").innerHTML = sub;
-  $("hint").textContent = replay ? "🔁 INSTANT REPLAY — click to skip" : hintTimer > 0 ? hintText : state === "aiming" ? "⏸️ PAUSED — move the mouse to aim, press SPACE to shoot!" : (state === "skating" && timer > 0.8 ? (aimMode === "pause" ? "Click to PAUSE and aim your " : "Click inside the net to do your ") + MOVES[chosenMove].name + "!" : "");
+  $("hint").textContent = replay ? "🔁 INSTANT REPLAY — click to skip"
+    : defending && state !== "result" && state !== "menu" ? "🧤 Mouse = glove · hold SPACE = butterfly · the blocker moves by itself"
+    : hintTimer > 0 ? hintText : state === "aiming" ? "⏸️ PAUSED — move the mouse to aim, press SPACE to shoot!" : (state === "skating" && timer > 0.8 ? (aimMode === "pause" ? "Click to PAUSE and aim your " : "Click inside the net to do your ") + MOVES[chosenMove].name + "!" : "");
   renderer.domElement.style.cursor = (state === "skating" || state === "aiming") ? "crosshair" : (state === "result" ? "pointer" : "default");
 }
 
