@@ -47,6 +47,7 @@ const SHOOTOUT_ROUNDS = 3;
 const SKATE = { startSpeed: 16, minSpeed: 8, maxSpeed: 24, sideSpeed: 10 };
 const GOALIE_SETTINGS = { homeZ: 86.4, speed: 6.2, slideSpeed: 9, reactionTime: 0.15 };   // make speed bigger for a harder goalie!
 const OTHER_TEAM_SCORES = 0.35;   // the chance the other team scores on YOUR goalie
+const FANCY_GRAPHICS = true;   // ice reflections + glowing lights. Set to false if the game is slow on your computer.
 const CAMERA_SETTINGS = { behind: 14, height: 7.5, side: 4, fieldOfView: 52 };
 
 // In our game, "z" grows as you skate TOWARD the net.
@@ -107,6 +108,22 @@ function capsule(radius, length, capSegments, sides) {
   const pos = shape.attributes.position, uv = shape.attributes.uv;
   const bottom = -length / 2 - radius, height = length + radius * 2;
   for (let i = 0; i < pos.count; i++) uv.setY(i, (pos.getY(i) - bottom) / height);
+  return shape;
+}
+// A box with rounded edges (for gear like goalie pads, blockers and gloves)
+function roundedRectShape(w, h, r) {
+  const s = new THREE.Shape(), x = w / 2, y = h / 2;
+  s.moveTo(-x + r, -y); s.lineTo(x - r, -y); s.absarc(x - r, -y + r, r, -Math.PI / 2, 0);
+  s.lineTo(x, y - r); s.absarc(x - r, y - r, r, 0, Math.PI / 2);
+  s.lineTo(-x + r, y); s.absarc(-x + r, y - r, r, Math.PI / 2, Math.PI);
+  s.lineTo(-x, -y + r); s.absarc(-x + r, -y + r, r, Math.PI, Math.PI * 1.5);
+  return s;
+}
+function roundedBox(w, h, d, r) {
+  const b = Math.min(r, d / 2.2);
+  const shape = new THREE.ExtrudeGeometry(roundedRectShape(w - 2 * b, h - 2 * b, Math.max(0.001, r - b)),
+    { depth: Math.max(0.001, d - 2 * b), bevelEnabled: true, bevelSize: b, bevelThickness: b, bevelSegments: 4, curveSegments: 8 });
+  shape.center();
   return shape;
 }
 // A "lathe" shape: like a vase on a pottery wheel. We give it [radius, height] points from bottom to top.
@@ -381,30 +398,55 @@ grownRink(0.36).getSpacedPoints(64).forEach(p => {
   scene.add(s);
 });
 
-// The crowd: rows of fans painted on a sloped "stands" shape all around the rink
-const crowdTexture = paintTexture(1024, 1024, (ctx, w, h) => {
-  ctx.fillStyle = "#12161d";
-  ctx.fillRect(0, 0, w, h);
-  const shirts = ["#00539b", "#f47d30", "#0038a8", "#ce1126", "#ffffff", "#2b2b2b", "#7a7a7a", "#f2c230", "#00539b", "#f47d30"];
-  const skins = ["#f1c7a5", "#d9a27a", "#a8714d", "#6b4429", "#f5d6bf"];
-  const rows = 28, rowH = h / rows;
-  for (let r = 0; r < rows; r++) {
-    const y = r * rowH;
-    ctx.fillStyle = r % 2 ? "#1c222c" : "#171c25";
-    ctx.fillRect(0, y, w, rowH);
-    for (let x = 3; x < w - 14; x += 17 + Math.random() * 6) {
-      if (Math.random() < 0.1) continue; // an empty seat
-      ctx.fillStyle = shirts[Math.floor(Math.random() * shirts.length)];
-      ctx.beginPath(); ctx.roundRect(x, y + rowH * 0.48, 13, rowH * 0.52, 4); ctx.fill();
-      ctx.fillStyle = skins[Math.floor(Math.random() * skins.length)];
-      ctx.beginPath(); ctx.arc(x + 6.5, y + rowH * 0.36, 5.2, 0, Math.PI * 2); ctx.fill();
+// The crowd: two levels of seats full of fans, with a glowing LED ad ring in between (like a real arena)
+function crowdPicture(darkness) {
+  return paintTexture(2048, 1024, (ctx, w, h) => {
+    const shirts = ["#00539b", "#f47d30", "#0038a8", "#ce1126", "#e8e8e8", "#2b2b2b", "#555b66", "#f2c230", "#00539b", "#f47d30", "#1d3c6e"];
+    const skins = ["#e8b896", "#c99470", "#9a6644", "#5e3c24", "#efcdb3"];
+    const rows = 26, rowH = h / rows;
+    for (let r = 0; r < rows; r++) {
+      const y = r * rowH;
+      ctx.fillStyle = r % 2 ? "#3a1219" : "#30101a";        // dark red seats
+      ctx.fillRect(0, y, w, rowH);
+      ctx.fillStyle = "#14080b"; ctx.fillRect(0, y + rowH * 0.9, w, rowH * 0.1);   // the step between rows
+      for (let x = 2; x < w - 20; x += 19 + Math.random() * 4) {
+        if (Math.random() < 0.12) continue;                // an empty seat
+        const shirt = shirts[Math.floor(Math.random() * shirts.length)];
+        ctx.fillStyle = shirt;
+        ctx.beginPath(); ctx.roundRect(x, y + rowH * 0.5, 16, rowH * 0.42, 6); ctx.fill();   // shoulders
+        if (Math.random() < 0.06) { ctx.fillRect(x - 2, y + rowH * 0.05, 3, rowH * 0.5); ctx.fillRect(x + 15, y + rowH * 0.05, 3, rowH * 0.5); }  // arms up!
+        ctx.fillStyle = skins[Math.floor(Math.random() * skins.length)];
+        ctx.beginPath(); ctx.arc(x + 8, y + rowH * 0.36, 6, 0, Math.PI * 2); ctx.fill();   // head
+        if (Math.random() < 0.5) { ctx.fillStyle = "#1a1410"; ctx.beginPath(); ctx.arc(x + 8, y + rowH * 0.31, 6, Math.PI, 0); ctx.fill(); }  // hair
+      }
+      ctx.fillStyle = "rgba(0,0,0," + ((1 - r / rows) * 0.45 + darkness) + ")";   // the back rows are darker
+      ctx.fillRect(0, y, w, rowH);
     }
-  }
+  });
+}
+const lowerCrowd = crowdPicture(0.05), upperCrowd = crowdPicture(0.3);
+lowerCrowd.wrapS = upperCrowd.wrapS = THREE.RepeatWrapping;
+band(1.7, 9.2, 30, 40, 34, new THREE.MeshStandardMaterial({ map: lowerCrowd, emissive: "#ffffff", emissiveMap: lowerCrowd, emissiveIntensity: 0.14, roughness: 0.95 }));
+band(41.7, 30, 33.5, 0, 96, new THREE.MeshBasicMaterial({ map: adTexture, color: "#d8d8d8" }));                 // glowing LED ad ring
+band(42.2, 33.5, 68, 38, 34, new THREE.MeshStandardMaterial({ map: upperCrowd, emissive: "#ffffff", emissiveMap: upperCrowd, emissiveIntensity: 0.06, roughness: 0.95 }));
+// bright lights hanging from the roof
+const roofLight = new THREE.MeshBasicMaterial({ color: "#fff7e0" });
+grownRink(-6).getSpacedPoints(18).forEach(p => {
+  const lamp = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 2.5), roofLight);
+  lamp.position.set(p.x, 72, -p.y);
+  scene.add(lamp);
 });
-crowdTexture.wrapS = THREE.RepeatWrapping;
-band(1.7, 9.2, 58, 70, 26, new THREE.MeshStandardMaterial({
-  map: crowdTexture, emissive: "#ffffff", emissiveMap: crowdTexture, emissiveIntensity: 0.3, roughness: 0.95
-}));
+
+// Shiny ice: a mirror under the ice, so you can see faint reflections of the players and boards
+if (FANCY_GRAPHICS) {
+  const mirror = new THREE.Reflector(new THREE.ShapeGeometry(grownRink(0), 24), {
+    textureWidth: window.innerWidth * 0.5, textureHeight: window.innerHeight * 0.5, color: "#7d8a96", clipBias: 0.003 });
+  mirror.rotation.x = -Math.PI / 2;
+  mirror.position.y = -0.03;
+  scene.add(mirror);
+  ice.material.transparent = true;
+  ice.material.opacity = 0.84;
+}
 
 // The red goal light behind the net (it flashes when you score!)
 const goalLight = new THREE.PointLight("#ff2020", 0, 40);
@@ -505,13 +547,31 @@ const steel = material("#e3e7ec", 0.15, { metalness: 0.95 });
 const skin = material("#d9a37f", 0.6);
 
 // A hockey skate: boot, white holder, steel blade
+// We draw the side of each part (like tracing it on paper), then give it thickness
+function sidePiece(points, width, bevel, mat) {
+  const shape = new THREE.Shape();
+  shape.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i];
+    if (p.length === 4) shape.quadraticCurveTo(p[0], p[1], p[2], p[3]); else shape.lineTo(p[0], p[1]);
+  }
+  const g = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 3, curveSegments: 10 });
+  g.translate(0, 0, -width / 2);
+  g.rotateY(Math.PI / 2);   // turn it so the toe points forward
+  return new THREE.Mesh(g, mat);
+}
+const skateBoot = material("#141414", 0.3, { metalness: 0.1 });
+const skateHolder = material("#f2f2f2", 0.3);
 function makeSkate(parent) {
   const skate = new THREE.Group();
-  addMesh(skate, new THREE.BoxGeometry(0.34, 0.42, 0.78), black, 0, -0.08, -0.12);
-  addMesh(skate, new THREE.SphereGeometry(0.18, 14, 10), black, 0, -0.17, -0.5).scale.set(1, 0.75, 1.1);   // toe
-  addMesh(skate, new THREE.BoxGeometry(0.2, 0.3, 0.1), material("#d8d8d8", 0.4), 0, 0.12, 0.28);          // heel guard
-  addMesh(skate, new THREE.BoxGeometry(0.12, 0.16, 1.0), material("#f0f0f0", 0.35), 0, -0.36, -0.15);     // holder
-  addMesh(skate, new THREE.BoxGeometry(0.035, 0.11, 1.08), steel, 0, -0.47, -0.15);                       // blade
+  const parts = [
+    sidePiece([[-0.3, -0.3], [0.44, -0.3], [0.58, -0.3, 0.56, -0.17], [0.52, -0.06, 0.3, -0.04], [0.12, 0.06], [0.06, 0.32],
+               [-0.2, 0.33], [-0.34, 0.36, -0.36, 0.5], [-0.3, 0.5], [-0.38, 0.0, -0.3, -0.3]], 0.24, 0.045, skateBoot),   // boot
+    sidePiece([[-0.3, -0.3], [0.5, -0.3], [0.44, -0.45], [0.3, -0.45], [0.22, -0.38], [0.0, -0.38], [-0.08, -0.45], [-0.26, -0.45]], 0.1, 0.01, skateHolder), // holder
+    sidePiece([[-0.38, -0.44], [0.5, -0.44], [0.62, -0.46, 0.5, -0.515], [-0.28, -0.525], [-0.42, -0.5, -0.38, -0.44]], 0.03, 0, steel),   // steel blade
+    sidePiece([[0.05, 0.3], [0.13, 0.05], [0.2, 0.05], [0.12, 0.36]], 0.16, 0.02, material("#e8e8e8", 0.8))   // laces/tongue
+  ];
+  parts.forEach(m => { m.castShadow = true; m.receiveShadow = true; skate.add(m); });
   parent.add(skate);
   return skate;
 }
@@ -620,8 +680,8 @@ function makeShooter() {
 
   // arms: upper arm, elbow, forearm, glove cuff, glove
   const arms = [-1, 1].map(s => {
-    const glove = addMesh(root, new THREE.SphereGeometry(0.21, 16, 12), m.glove);
-    glove.scale.set(1, 0.85, 1.35);
+    const glove = addMesh(root, roundedBox(0.32, 0.28, 0.5, 0.09), m.glove);   // padded hockey glove
+    addMesh(glove, roundedBox(0.34, 0.08, 0.2, 0.035), m.cuff, 0, 0.11, 0.08);     // finger padding
     return {
       side: s,
       upper: addMesh(root, taper(0.2, 0.17), m.jersey),
@@ -648,20 +708,21 @@ function makeGoalie() {
   const padMat = material("#ffffff", 0.5, { map: paintTexture(512, 1024, (ctx, w, h) => {
     ctx.fillStyle = T.pads; ctx.fillRect(0, 0, w, h);
     [[0.14, 0.05, T.stripe], [0.2, 0.05, T.jersey], [0.55, 0.05, T.stripe], [0.61, 0.05, T.jersey], [0.86, 0.04, T.stripe]].forEach(([y, hh, c]) => { ctx.fillStyle = c; ctx.fillRect(0, y * h, w, hh * h); });
-    [0, w].forEach(x => {   // brand name down the front of the pad (drawn twice so it joins up around the pad)
-      ctx.save(); ctx.translate(x, h * 0.4); ctx.rotate(-Math.PI / 2);
-      ctx.font = "italic 900 54px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillStyle = T.jersey; ctx.fillText("BRICKWALL", 0, 0); ctx.restore();
-    });
+    ctx.save(); ctx.translate(w / 2, h * 0.38); ctx.rotate(-Math.PI / 2);   // brand name down the front of the pad
+    ctx.font = "italic 900 110px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = T.jersey; ctx.fillText("BRICKWALL", 0, 0); ctx.restore();
   }) });
+  padMat.map.wrapS = padMat.map.wrapT = THREE.RepeatWrapping;
+  padMat.map.repeat.set(1 / 0.9, 1 / 2.35);    // fit the picture onto the pad's front
+  padMat.map.offset.set(0.5, 0.5);
 
   const torso = new THREE.Group();
   root.add(torso);
-  const chest = addMesh(torso, lathe([[0.68, 0.1], [0.68, 0.5], [0.7, 0.9], [0.76, 1.22], [0.76, 1.42], [0.6, 1.62], [0.34, 1.75], [0.01, 1.78]]), material("#ffffff", 0.7, { map: jerseyTexture(T, true) }));
+  const chest = addMesh(torso, lathe([[0.6, 0.1], [0.6, 0.5], [0.62, 0.9], [0.68, 1.22], [0.68, 1.42], [0.54, 1.62], [0.3, 1.75], [0.01, 1.78]]), material("#ffffff", 0.7, { map: jerseyTexture(T, true) }));
   chest.scale.z = 0.78;
   chest.rotation.y = Math.PI;
   addMesh(torso, lathe([[0.6, -0.8], [0.68, -0.5], [0.68, -0.1], [0.6, 0.25], [0.01, 0.3]]), jersey).scale.z = 0.8;
-  [-1, 1].forEach(s => addMesh(torso, new THREE.SphereGeometry(0.4, 18, 12), jersey, s * 0.78, 1.42, 0));
+  [-1, 1].forEach(s => addMesh(torso, new THREE.SphereGeometry(0.34, 18, 12), jersey, s * 0.72, 1.42, 0));
 
   const head = new THREE.Group();
   head.position.set(0, 2.05, 0.04);
@@ -674,9 +735,10 @@ function makeGoalie() {
 
   // blocker (holds the stick) and catching glove
   const blocker = new THREE.Group();
-  addMesh(blocker, new THREE.BoxGeometry(0.65, 1.1, 0.2), white);
-  addMesh(blocker, new THREE.BoxGeometry(0.67, 0.1, 0.22), redTrim, 0, 0.5, 0);
-  addMesh(blocker, new THREE.BoxGeometry(0.67, 0.1, 0.22), redTrim, 0, -0.5, 0);
+  addMesh(blocker, roundedBox(0.65, 1.1, 0.22, 0.08), white);
+  addMesh(blocker, roundedBox(0.67, 0.1, 0.24, 0.04), redTrim, 0, 0.47, 0);
+  addMesh(blocker, roundedBox(0.67, 0.1, 0.24, 0.04), redTrim, 0, -0.47, 0);
+  addMesh(blocker, roundedBox(0.4, 0.5, 0.06, 0.05), material(T.jersey, 0.5), 0, 0, 0.11);   // logo patch
   const stickMat = material("#2a1f16", 0.45);
   placeBetween(addMesh(blocker, new THREE.BoxGeometry(0.1, 1, 0.07), stickMat), V(0.05, -0.3, 0.1), V(0.4, -1.0, 0.3));
   placeBetween(addMesh(blocker, new THREE.BoxGeometry(0.3, 1, 0.06), stickMat), V(0.4, -1.0, 0.3), V(0.55, -2.55, 0.45));
@@ -684,15 +746,20 @@ function makeGoalie() {
   root.add(blocker);
 
   const glove = new THREE.Group();
-  addMesh(glove, new THREE.SphereGeometry(0.55, 22, 16), jersey).scale.set(1, 1.12, 0.36);
-  addMesh(glove, new THREE.SphereGeometry(0.32, 18, 12), redTrim, 0, -0.05, 0.12).scale.set(1, 1, 0.3);
-  addMesh(glove, new THREE.BoxGeometry(0.5, 0.06, 0.06), white, 0, 0.45, 0.15);
+  addMesh(glove, roundedBox(0.95, 1.05, 0.24, 0.3), jersey);                             // the big catching glove
+  addMesh(glove, roundedBox(0.5, 0.55, 0.08, 0.22), redTrim, 0.05, -0.02, 0.12);           // the pocket
+  addMesh(glove, roundedBox(0.5, 0.08, 0.1, 0.03), white, 0.05, 0.42, 0.13);               // the T-trap
+  addMesh(glove, roundedBox(0.16, 0.42, 0.1, 0.05), white, 0.05, 0.22, 0.13);
+  addMesh(glove, roundedBox(0.5, 0.35, 0.3, 0.1), white, 0, -0.62, -0.02);                 // the cuff
   root.add(glove);
 
   const legs = [-1, 1].map(s => {
-    const pad = addMesh(root, capsule(0.45, 1.45, 8, 18), padMat);
-    pad.scale.set(1, 1, 0.58);
-    return { side: s, thigh: addMesh(root, taper(0.32, 0.28), jersey), pad: pad, skate: addMesh(root, new THREE.BoxGeometry(0.34, 0.3, 0.9), black) };
+    const pad = addMesh(root, roundedBox(0.9, 2.35, 0.52, 0.16), padMat);           // flat-faced goalie pad
+    addMesh(pad, roundedBox(0.92, 0.2, 0.6, 0.09), padMat, 0, 0.42, 0.03);           // knee roll
+    addMesh(pad, roundedBox(0.5, 0.35, 0.3, 0.12), white, 0, 0.62, -0.25);           // knee block
+    const skate = makeSkate(root);
+    skate.rotation.y = Math.PI;                                                      // goalie faces us
+    return { side: s, thigh: addMesh(root, taper(0.32, 0.28), jersey), pad: pad, skate: skate };
   });
   const arms = [-1, 1].map(() => ({ upper: addMesh(root, taper(0.26, 0.22), jersey), fore: addMesh(root, taper(0.22, 0.2), jersey), elbow: addMesh(root, new THREE.SphereGeometry(0.24, 14, 10), jersey) }));
 
@@ -811,6 +878,11 @@ function setupRealPlayer(gltf) {
   S.root.add(number);
   number.position.copy(toRoot(at(real.spine[2])).add(V(0, -0.08, 0.47)));
   real.spine[2].attach(number);              // jersey number on the back
+  const hockeyPants = addMesh(S.root, lathe([[0.47, -0.7], [0.55, -0.5], [0.57, -0.25], [0.54, 0], [0.5, 0.2], [0.45, 0.3], [0.01, 0.34]]),
+    material("#ffffff", 0.55, { map: pantsTexture(T) }));     // big padded hockey pants over the soccer shorts
+  hockeyPants.scale.z = 0.8;
+  hockeyPants.position.copy(toRoot(at(real.hips)).add(V(0, -0.02, 0)));
+  real.hips.attach(hockeyPants);
   S.torso.visible = false;                   // hide the old shape body
 
   real.mixer = new THREE.AnimationMixer(model);
@@ -899,7 +971,7 @@ function poseRealPlayer(dt, legTargets, topHand, lowHand, hipsY, sway) {
   const celebrating = state === "result" && resultGoal;
   const want = celebrating ? real.actions.fistpump : real.actions.idle;
   if (real.current !== want) { want.reset().fadeIn(0.3).play(); real.current.fadeOut(0.3); real.current = want; }
-  real.mixer.update(dt);
+  real.mixer.update(dt);   // (keeps breathing even while paused)
   [S.shaft, S.knob, S.blade].forEach(o => o.visible = !celebrating);   // drop the stick to celebrate!
   if (celebrating) { S.root.updateMatrixWorld(true); placeHelmet(); return; }
 
@@ -949,6 +1021,7 @@ const puckModel = addMesh(scene, new THREE.CylinderGeometry(0.25, 0.25, 0.085, 3
 // a yellow ring that shows where you aimed
 const aimMarker = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.32, 32), new THREE.MeshBasicMaterial({ color: "#ffe14d", transparent: true, depthTest: false }));
 aimMarker.visible = false;
+aimMarker.scale.setScalar(1.6);
 scene.add(aimMarker);
 
 // Ice spray: little snow bits that fly up from the skates
@@ -989,6 +1062,8 @@ function updateSpray(dt) {
 //   "menu" -> "ready" -> "skating" -> "move" -> "shot" -> "result" -> back to "menu"
 let state = "menu";
 let chosenMove = "wrist";
+let aimMode = "skate";   // "skate" = Skate & Shoot (click to shoot)   "pause" = Pause to Shoot (click, aim, press SPACE)
+let pausedAim = null;    // where you're aiming while the game is paused
 let timer = 0, clock = 0;
 let resultText = "", resultGoal = false, theirText = "";
 let hintText = "", hintTimer = 0;
@@ -1094,23 +1169,58 @@ Object.keys(MOVES).forEach(key => {
   $("moveButtons").appendChild(button);
 });
 
+// The two ways to shoot
+const AIM_MODES = { skate: "⛸️ Skate & Shoot", pause: "⏸️ Pause to Shoot" };
+Object.keys(AIM_MODES).forEach(key => {
+  const button = document.createElement("button");
+  button.textContent = AIM_MODES[key];
+  button.dataset.mode = key;
+  button.addEventListener("click", () => { aimMode = key; });
+  $("modeButtons").appendChild(button);
+});
+
 const raycaster = new THREE.Raycaster();
+// Where on the net is the mouse pointing? (null if it's not on the net)
+function netSpotUnderMouse(e) {
+  const mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(mouse, camera);
+  const hit = new THREE.Vector3();
+  if (!raycaster.ray.intersectPlane(new THREE.Plane(V(0, 0, 1), RINK.goalLine), hit)) return null;
+  const inside = Math.abs(hit.x) < NET.halfWidth + 0.2 && hit.y > 0 && hit.y < NET.height + 0.2;
+  return inside ? { x: hit.x, y: hit.y } : null;
+}
+function showAim(target) {
+  aimMarker.visible = !!target;
+  if (target) { aimMarker.position.set(target.x, target.y, -RINK.goalLine + 0.05); aimMarker.material.opacity = 1; }
+}
+// PAUSE TO SHOOT: while paused, the yellow target follows the mouse...
+renderer.domElement.addEventListener("mousemove", e => {
+  if (state !== "aiming") return;
+  pausedAim = netSpotUnderMouse(e);
+  showAim(pausedAim);
+});
+// ...and SPACE shoots!
+document.addEventListener("keydown", e => {
+  if (e.code !== "Space") return;
+  e.preventDefault();
+  if (state !== "aiming") return;
+  if (!pausedAim) { hintText = "Point the mouse at the net first!"; hintTimer = 1.5; return; }
+  beginMove(pausedAim);
+});
 const netPlane = new THREE.Plane(V(0, 0, 1), RINK.goalLine);  // an invisible wall at the goal line
 
 renderer.domElement.addEventListener("click", e => {
   startAudio();
-  if (state === "skating") {
-    // Shoot an invisible laser from the camera through your mouse, and see where it hits the net
-    const mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
-    raycaster.setFromCamera(mouse, camera);
-    const hit = new THREE.Vector3();
-    if (!raycaster.ray.intersectPlane(netPlane, hit)) return;
-    const target = { x: hit.x, y: hit.y };
-    const insideNet = Math.abs(target.x) < NET.halfWidth + 0.2 && target.y > 0 && target.y < NET.height + 0.2;
-    if (!insideNet) { hintText = "Click INSIDE the net!"; hintTimer = 1.5; return; }
-    aimMarker.position.set(target.x, target.y, -RINK.goalLine + 0.05);
-    aimMarker.visible = true;
-    aimMarker.material.opacity = 1;
+  if (state === "skating" && aimMode === "pause") {
+    // PAUSE TO SHOOT: freeze the game so you can aim
+    state = "aiming";
+    pausedAim = netSpotUnderMouse(e);
+    showAim(pausedAim);
+  } else if (state === "skating") {
+    // SKATE & SHOOT: shoot an invisible laser from the camera through your mouse, and see where it hits the net
+    const target = netSpotUnderMouse(e);
+    if (!target) { hintText = "Click INSIDE the net!"; hintTimer = 1.5; return; }
+    showAim(target);
     beginMove(target);
   } else if (state === "result") {
     if (shootout.winner) { shootout.you = []; shootout.them = []; shootout.winner = null; }
@@ -1200,7 +1310,9 @@ function finishAttempt(scored) {
 
 // ----- 11. UPDATE: move everything a tiny bit, many times per second -----
 function update(dt) {
-  clock += dt; timer += dt; hintTimer -= dt; goalLightTimer -= dt; shake = Math.max(0, shake - dt * 3);
+  hintTimer -= dt;
+  if (state === "aiming") return;   // PAUSED: everything stands still while you aim
+  clock += dt; timer += dt; goalLightTimer -= dt; shake = Math.max(0, shake - dt * 3);
 
   if (state === "ready" && timer > 1.2) {
     playWhistle();
@@ -1337,12 +1449,12 @@ function update(dt) {
 let lean = 0.3;
 function updateShooterModel(dt) {
   const S = shooterModel;
-  const skating = state === "skating" || state === "move";
+  const skating = state === "skating" || state === "move" || state === "aiming";
   S.root.position.copy(spot(shooter.x, 0, shooter.z));
   S.root.rotation.y = shooter.spin;
 
   // Skating stride: each leg pushes OUT to the side and back, then comes back under the body
-  if (skating) shooter.stride += dt * (0.9 + shooter.speed * 0.055);
+  if (skating && state !== "aiming") shooter.stride += dt * (0.9 + shooter.speed * 0.055);
   const p = shooter.stride % 1;
   const wantLean = skating ? 0.5 + shooter.windup * 0.15 : 0.28;
   lean += (wantLean - lean) * Math.min(1, dt * 6);
@@ -1450,7 +1562,7 @@ function updateGoalieModel() {
     const up = knee.clone().sub(ankle).normalize();
     placeBetween(leg.pad, ankle.clone().addScaledVector(up, -0.3), knee.clone().addScaledVector(up, 0.55), false);   // big pads: from the skate to above the knee
     leg.pad.position.z += 0.14;   // pads sit in FRONT of the legs
-    leg.skate.position.set(ankle.x, 0.15, ankle.z);
+    leg.skate.position.set(ankle.x, ankle.y + 0.08, ankle.z);
     goalieLegs.push({ knee: knee, ankle: ankle });
   });
 
@@ -1535,6 +1647,8 @@ function updateWords() {
   $("moveTag").textContent = MOVES[chosenMove].icon + " " + MOVES[chosenMove].name;
   let big = "", sub = "", color = "white";
   if (state === "ready") big = "Get ready...";
+
+  document.querySelectorAll("#modeButtons button").forEach(b => b.classList.toggle("picked", b.dataset.mode === aimMode));
   if (state === "skating" && timer < 0.8) { big = "TWEEEET! GO!"; color = "#ffe14d"; }
   if (state === "result") {
     big = resultText;
@@ -1547,12 +1661,23 @@ function updateWords() {
   $("big").textContent = big;
   $("big").style.color = color;
   if ($("sub").innerHTML !== sub) $("sub").innerHTML = sub;
-  $("hint").textContent = hintTimer > 0 ? hintText : (state === "skating" && timer > 0.8 ? "Click inside the net to do your " + MOVES[chosenMove].name + "!" : "");
-  renderer.domElement.style.cursor = state === "skating" ? "crosshair" : (state === "result" ? "pointer" : "default");
+  $("hint").textContent = hintTimer > 0 ? hintText : state === "aiming" ? "⏸️ PAUSED — move the mouse to aim, press SPACE to shoot!" : (state === "skating" && timer > 0.8 ? (aimMode === "pause" ? "Click to PAUSE and aim your " : "Click inside the net to do your ") + MOVES[chosenMove].name + "!" : "");
+  renderer.domElement.style.cursor = (state === "skating" || state === "aiming") ? "crosshair" : (state === "result" ? "pointer" : "default");
 }
 
 
 // ----- 14. THE GAME LOOP: update, move models, draw, about 60 times every second! -----
+// Glowing lights (bloom), like a TV camera sees them
+let composer = null;
+if (FANCY_GRAPHICS) {
+  composer = new THREE.EffectComposer(renderer);
+  composer.addPass(new THREE.RenderPass(scene, camera));
+  composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.35, 0.5, 0.9));
+  composer.addPass(new THREE.OutputPass());
+  window.addEventListener("resize", () => composer.setSize(window.innerWidth, window.innerHeight));
+}
+function drawFrame() { if (composer) composer.render(); else renderer.render(scene, camera); }
+
 let lastTime = performance.now();
 function gameLoop(now) {
   const dt = Math.min(0.05, (now - lastTime) / 1000);
@@ -1560,7 +1685,7 @@ function gameLoop(now) {
   update(dt);
   updateModels(dt);
   updateWords();
-  renderer.render(scene, camera);
+  drawFrame();
   requestAnimationFrame(gameLoop);
 }
 camera.position.copy(spot(CAMERA_SETTINGS.side, CAMERA_SETTINGS.height, shooter.z - CAMERA_SETTINGS.behind));

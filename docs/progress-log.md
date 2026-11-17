@@ -33,3 +33,8 @@ Newest entries at the bottom. Claude adds one at the end of every session.
 - **Built:** Sarosh and his parent downloaded a realistic person (Mixamo "Ch38") with Idle, Fist Pump and Rallying animations. We converted 157 MB of .fbx files into one 7 MB .glb. The skater and the goalie are now that real person, dressed in our gear (helmet with visor, gloves, socks over the knees, skates; goalie mask with cage, BRICKWALL pads, blocker, glove). Their bones are bent with inverse kinematics to skate, hold the stick, and drop into the butterfly. Realistic stick (curved blade, white tape, SNIPER carbon shaft). Made-up brands on the boards. Fist-pump celebration with a camera that turns around to watch.
 - **Learned:** How real games make characters (artists, skeletons/rigs, motion capture). What GLTF and a loader are. Licenses (CC0, CC BY, ND...). How to make a GitHub token and push from Terminal.
 - **Next:** Sarosh plays and gives feedback.
+
+## 2026-11-17 — Real arena look + Pause to Shoot
+- **Sarosh's feedback:** still looked blocky (the crowd wall, the gear); wants to publish it someday; wants a "pause to shoot" option.
+- **Built:** Two-level arena with darker crowds, red seats, a glowing LED ad ring and roof lights. Shiny ice with faint reflections, glowing lights (bloom) and a TV-style vignette (`FANCY_GRAPHICS` switch). Realistic skate shapes, padded gloves, hockey pants. Goalie gear with flat faces: BRICKWALL pads with knee rolls, blocker, catching glove with T-trap. New menu option: ⛸️ Skate & Shoot (click the net) or ⏸️ Pause to Shoot (click to freeze, aim with the mouse, SPACE to shoot).
+- **Next:** Sarosh plays it. Publishing needs a grown-up's decision (GitHub Pages or itch.io).

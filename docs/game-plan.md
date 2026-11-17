@@ -34,7 +34,9 @@ A **hockey shootout** game with real-life shootout moves. The shooter skates in 
 - [x] Smarter goalie (poke check, butterfly, comes out to cut the angle, bites on fakes)
 - [x] Sounds: whistle, goal horn, save thud, post PING
 - [x] Crowd noise that roars on goals
-- [ ] Start screen, teams, and a winner screen
+- [x] Start screen with move + shooting-mode choice, winner screen
+- [ ] Team names
+- [ ] Publish online (GitHub Pages or itch.io) — ask a grown-up first
 - [ ] Sarosh's own ideas: ...
 
 ## Ideas parking lot
