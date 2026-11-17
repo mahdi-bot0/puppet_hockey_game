@@ -898,14 +898,15 @@ function setupRealPlayer(gltf) {
   S.root.attach(S.head);                     // the helmet follows the head every frame (see placeHelmet)
   S.head.scale.setScalar(1.08);
   real.headTop = bone("HeadTop_End");
-  const number = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.85), new THREE.MeshStandardMaterial({
+  // the jersey number, curved around his back
+  const number = new THREE.Mesh(new THREE.CylinderGeometry(0.47, 0.47, 0.85, 24, 1, true, -0.85, 1.7), new THREE.MeshStandardMaterial({
     map: paintTexture(256, 256, (ctx, w, h) => {
       ctx.font = "900 170px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.lineWidth = 14; ctx.strokeStyle = T.stripe; ctx.strokeText(T.number, w / 2, h / 2);
       ctx.fillStyle = "white"; ctx.fillText(T.number, w / 2, h / 2);
     }), transparent: true, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4 }));
   S.root.add(number);
-  number.position.copy(toRoot(at(real.spine[2])).add(V(0, -0.08, 0.47)));
+  number.position.copy(toRoot(at(real.spine[2])).add(V(0, -0.08, 0.02)));
   real.spine[2].attach(number);              // jersey number on the back
   const hockeyPants = addMesh(S.root, lathe([[0.47, -0.7], [0.55, -0.5], [0.57, -0.25], [0.54, 0], [0.5, 0.2], [0.45, 0.3], [0.01, 0.34]]),
     material("#ffffff", 0.55, { map: pantsTexture(T) }));     // big padded hockey pants over the soccer shorts
