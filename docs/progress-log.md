@@ -21,3 +21,9 @@ Newest entries at the bottom. Claude adds one at the end of every session.
 - **Built:** Sarosh said the graphics looked "kinda bad", so we rebuilt the game in real 3D with the three.js engine: lights, soft shadows, glossy ice that reflects the arena lights, 3D players (shooter in blue/orange #11, goalie in blue/red/white #30 with striped pads, blocker, glove and mask), a curved net with real mesh, white boards and glass, and a full arena of fans. The camera follows behind the shooter and never blocks the net. The goalie drops into the butterfly for low shots and reaches with his glove or blocker for high ones. The red goal light flashes when you score.
 - **Learned:** A 3D engine works like a movie set: scene, camera, lights, and meshes (shape + material). Textures are like stickers wrapped on 3D shapes.
 - **Next:** Sarosh plays it and tells us what to improve.
+
+## 2026-11-17 — Realistic players, 10 moves, real shootout
+- **Sarosh's feedback:** players looked fat, wanted them more realistic like a console hockey game, lots more moves, a butterfly goalie, real skating.
+- **Built:** Athletic players with real gear (helmet + visor, shoulder pads, gloves, striped socks, skates with holders and steel blades, taped stick). Real skating: legs push out to the side, knees bent, stickhandling, snow spray from the skates. 10 moves: wrist, snap, slap, backhand, deke, five-hole, spin-o-rama, toe drag, shot fake, lacrosse. The goalie goes into the butterfly (low shots, up close, on shot fakes), comes out to cut the angle, and bites on dekes. Shootout with 3 rounds + sudden death and a tracker. Boards with ads, glass posts, crowd noise, goal replay camera.
+- **Learned:** Inverse kinematics (the computer works out where the knee/elbow go when you say where the foot/hand should be). Data in an object (all 10 moves live in one MOVES list).
+- **Next:** Sarosh plays and gives feedback.

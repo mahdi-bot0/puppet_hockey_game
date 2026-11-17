@@ -25,17 +25,18 @@ A **hockey shootout** game with real-life shootout moves. The shooter skates in 
 - [x] Shoot! (puck flies toward where you aim)
 - [x] Add a goalie who moves side to side
 - [x] Goal or save? Detect it and show it on screen
-- [ ] Shootout rules: 3 shooters each, then sudden death
+- [x] Shootout rules: 3 rounds, then sudden death (the other team's shots are simulated)
 - [x] Wrist shot
 - [x] Deke (fake one way, shoot the other)
-- [ ] More shot types: slap shot, backhand
-- [ ] More dekes: five-hole, spin-o-rama, the "lacrosse" move
-- [ ] Shoot high or low (blocker side / glove side)
-- [ ] Smarter goalie (pokecheck, butterfly, gets tricked by dekes)
+- [x] More shots: snap shot, slap shot, backhand
+- [x] More moves: five-hole, spin-o-rama, toe drag, shot fake, lacrosse
+- [x] Shoot high or low (blocker side / glove side)
+- [x] Smarter goalie (poke check, butterfly, comes out to cut the angle, bites on fakes)
 - [x] Sounds: whistle, goal horn, save thud, post PING
-- [ ] Crowd cheering sound
+- [x] Crowd noise that roars on goals
 - [ ] Start screen, teams, and a winner screen
 - [ ] Sarosh's own ideas: ...
 
 ## Ideas parking lot
-_Cool ideas for later go here so we don't forget them._
+- Sarosh wants it to look like a modern console hockey game: realistic players, real skating, lots of moves.
+- Ideas: play as the goalie, make the other team's shooters actually skate in, team names, instant replay, slow-motion goals.
