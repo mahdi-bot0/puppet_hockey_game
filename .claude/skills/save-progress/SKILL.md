@@ -23,7 +23,8 @@ git commit -m "Puck now bounces off the boards"
 git push
 ```
 - Commit messages: short, plain English, describing what the game can do now.
-- Ask Sarosh before pushing. Never force-push or delete history.
+- Commit after each finished step, but only `git push` when the parent says they're done for the day
+  (or asks for a push). Never force-push or delete history.
 - Don't commit screenshots, temp files, or anything with personal info.
 
 ## 3. Wrap up

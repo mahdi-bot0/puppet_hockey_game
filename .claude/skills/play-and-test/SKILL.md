@@ -18,6 +18,10 @@ description: How to run, play, and check the hockey game after a change, includi
   await p.waitForTimeout(1000); await p.screenshot({ path: 'screenshot.png' }); await b.close();
   ```
   Show Sarosh the screenshot. Don't commit screenshots.
+  The game is 3D (WebGL). In a cloud container launch Chromium with
+  `args: ['--use-angle=swiftshader','--enable-unsafe-swiftshader']`. It renders very slowly there (~1-5 fps),
+  so wait for game states with `page.waitForFunction(() => state === 'skating')` instead of fixed timeouts.
+  Top-level names like `state`, `shooter`, `camera`, `spot()` can be read with `page.evaluate`.
 
 ## Quick checklist after a change
 - Does the page load without errors? (Open the browser console: F12 → Console.)
