@@ -630,6 +630,39 @@ function makeStick(parent) {
   return { shaft, knob, blade };
 }
 
+// A real hockey helmet: hard shell, vents, ear guards, clear visor, chin strap, number on the back
+function makeHelmet(head, T) {
+  const r = 0.4, front = Math.PI * 1.5;   // in a SphereGeometry, this angle points to the front (the face)
+  const shell = material(T.jersey, 0.18, { metalness: 0.25, side: THREE.DoubleSide });
+  const dark = material("#15171a", 0.5);
+  const shape = m => { m.scale.set(0.9, 0.95, 1.08); return m; };
+  shape(addMesh(head, new THREE.SphereGeometry(r, 48, 20, 0, Math.PI * 2, 0, Math.PI * 0.5), shell));                     // the dome
+  shape(addMesh(head, new THREE.SphereGeometry(r, 48, 8, front + 1.15, Math.PI * 2 - 2.3, Math.PI * 0.5, Math.PI * 0.24), shell));  // sides + back come down lower
+  shape(addMesh(head, new THREE.SphereGeometry(r * 1.015, 32, 2, front - 1.2, 2.4, Math.PI * 0.47, Math.PI * 0.035), dark));    // rim over the forehead
+  [-0.32, -0.12, 0.08, 0.28].forEach(z => {                                                                                 // vents on top
+    const vent = addMesh(head, roundedBox(0.05, 0.03, 0.12, 0.012), dark, 0, Math.sqrt(Math.max(0, r * r - z * z)) * 0.95 - 0.005, z * 1.08);
+    vent.rotation.x = Math.atan2(z, r);
+  });
+  [-1, 1].forEach(side => {                                                                                                 // ear guards
+    const ear = addMesh(head, new THREE.SphereGeometry(0.1, 20, 14), shell, side * 0.335, -0.13, -0.02);   // rounded ear covers
+    ear.scale.set(0.35, 1, 1.05);
+  });
+  const visor = addMesh(head, new THREE.SphereGeometry(r * 1.07, 40, 8, front - 1.0, 2.0, Math.PI * 0.46, Math.PI * 0.15),
+    new THREE.MeshPhysicalMaterial({ color: "#e4f1fb", roughness: 0.02, metalness: 0.1, transparent: true, opacity: 0.22, side: THREE.DoubleSide }));
+  visor.scale.set(0.92, 0.95, 1.08);
+  visor.castShadow = false;
+  shape(addMesh(head, new THREE.SphereGeometry(r * 1.075, 40, 2, front - 1.0, 2.0, Math.PI * 0.455, Math.PI * 0.012), dark));   // black edge on the visor
+  const strap = addMesh(head, new THREE.TorusGeometry(0.3, 0.012, 6, 24, Math.PI), dark, 0, -0.13, -0.04);                   // chin strap
+  strap.rotation.set(0.95, 0, Math.PI);
+  const sticker = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.14), new THREE.MeshStandardMaterial({                         // number on the back
+    map: paintTexture(128, 96, (ctx, w, h) => {
+      ctx.font = "900 72px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = "white"; ctx.fillText(T.number, w / 2, h / 2 + 4);
+    }), transparent: true, polygonOffset: true, polygonOffsetFactor: -4 }));
+  sticker.position.set(0, -0.02, r * 1.07);
+  head.add(sticker);
+}
+
 // THE SHOOTER (an athletic skater in full gear)
 function makeShooter() {
   const T = SHOOTER_TEAM;
@@ -661,11 +694,7 @@ function makeShooter() {
   head.position.set(0, 2.18, -0.02);
   torso.add(head);
   addMesh(head, new THREE.SphereGeometry(0.29, 20, 14), skin, 0, -0.08, -0.07);
-  addMesh(head, new THREE.SphereGeometry(0.4, 32, 20, 0, Math.PI * 2, 0, Math.PI * 0.6), m.helmet).scale.set(0.92, 1, 1.1);
-  const visor = addMesh(head, new THREE.SphereGeometry(0.43, 24, 8, Math.PI * 1.5 - 0.95, 1.9, Math.PI * 0.42, Math.PI * 0.16),
-    new THREE.MeshPhysicalMaterial({ color: "#a8c4d8", roughness: 0.05, transparent: true, opacity: 0.35 }));
-  visor.scale.set(0.95, 1, 1.12);
-  visor.castShadow = false;
+  makeHelmet(head, T);
 
   // legs: thigh, knee, shin (with socks), skate
   const legs = [-1, 1].map(s => ({
@@ -961,7 +990,7 @@ function placeHelmet() {
   const S = shooterModel;
   const head = real.head.getWorldPosition(new THREE.Vector3()), top = real.headTop.getWorldPosition(new THREE.Vector3());
   const upDir = top.clone().sub(head).normalize().applyQuaternion(S.root.quaternion.clone().invert());
-  S.head.position.copy(S.root.worldToLocal(head.lerp(top, 0.6))).add(V(0, 0.03, 0.05));
+  S.head.position.copy(S.root.worldToLocal(head.lerp(top, 0.52))).add(V(0, 0.02, 0.04));
   S.head.quaternion.setFromUnitVectors(V(0, 1, 0), upDir);
 }
 
