@@ -54,3 +54,8 @@ Newest entries at the bottom. Claude adds one at the end of every session.
 - **Built:** `hockey.html` — a full game: 5 skaters + a goalie per team (blue/orange vs red/navy), all real 3D people from the Mixamo model in our gear. Faceoffs, passing (E / right click), shooting (click; hold for a slap shot), poke and body checks (SPACE), switching players (Q), computer teammates and opponents who carry, pass and shoot, goalies who make saves, rebounds and freeze the puck, boards, both nets, 3 periods of 4 minutes, overtime, TV scoreboard, shots on goal, TV camera or behind-the-player camera (C).
 - **Code:** the arena/players/sounds moved into `engine.js`, shared by the shootout (`index.html` + `game.js`) and 5-on-5 (`hockey.html` + `hockey.js`).
 - **Also asked:** Meta Quest 3 + Unity. Explained options (see chat).
+
+## 2026-11-24 — Starting the Godot version
+- **Sarosh's request:** high-end graphics for everything, using Godot, super real.
+- **Built (step 1, untested — Godot can't run in Claude's cloud computer):** `godot/` project: rounded NHL-size rink with painted lines and skate scratches, very glossy clear-coated ice with screen-space reflections, boards, kickplate, rail, glass, two nets with mesh, sloped crowd, roof lamps, and Godot's high-end lighting (SDFGI bounce light, SSIL, SSAO, glow, ACES tonemapping, fog, depth of field). The real 3D player from `player.glb` in team colors with a helmet on his head bone; WASD skating with glide, lean, stickhandling the puck, SPACE to shoot.
+- **Next:** Sarosh runs it in Godot and sends screenshots; fix whatever breaks. Then: real skating legs, more players, rules.
