@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mountain Car Crash Prototype</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #1a2634; font-family: sans-serif; color: white; }
+    canvas { display: block; }
+    #ui { position: absolute; top: 15px; left: 15px; pointer-events: none; }
+    h2 { margin: 0 0 5px 0; font-size: 20px; }
+    p { margin: 2px 0; font-size: 14px; color: #cbd5e1; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <h2>Mountain Crash Simulator (2D Prototype)</h2>
+    <p>Controls: <b>Right Arrow</b> (Gas) | <b>Left Arrow</b> (Brake/Reverse) | <b>R</b> (Reset Car)</p>
+    <p id="stats">Speed: 0 km/h | Integrity: 100%</p>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const statsEl = document.getElementById('stats');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Game & Car State
+    const keys = {};
+    let particles = [];
+    let car = {};
+
+    function resetCar() {
+      car = {
+        x: 150,
+        y: 100,
+        vx: 0,
+        vy: 0,
+        width: 50,
+        height: 22,
+        angle: 0,
+        health: 100,
+        crumpleFront: 0,
+        crumpleTop: 0,
+        isWrecked: false
+      };
+      particles = [];
+    }
+
+    // Generate Mountain Terrain Height using combined Sine Waves
+    function getTerrainHeight(x) {
+      const baseHeight = canvas.height * 0.65;
+      const mountainSlope = x * 0.12; // Overall downhill slope
+      const hills = Math.sin(x * 0.004) * 120 + Math.sin(x * 0.015) * 35;
+      const bumps = Math.sin(x * 0.08) * 4;
+      return baseHeight + mountainSlope + hills + bumps;
+    }
+
+    // Spawn Sparks/Debris on High-Speed Impact
+    function spawnCrashParticles(x, y, count) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 12,
+          vy: (Math.random() - 1) * 10,
+          life: 30 + Math.random() * 20,
+          color: Math.random() > 0.4 ? '#fbbf24' : '#ef4444'
+        });
+      }
+    }
+
+    window.addEventListener('keydown', e => {
+      keys[e.code] = true;
+      if (e.code === 'KeyR') resetCar();
+    });
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function update() {
+      // Gravity
+      car.vy += 0.45;
+
+      // Controls (only work if car isn't completely wrecked)
+      if (!car.isWrecked) {
+        if (keys['ArrowRight']) car.vx += 0.35;
+        if (keys['ArrowLeft']) car.vx -= 0.25;
+      }
+
+      // Air resistance & speed cap
+      car.vx *= 0.99;
+      car.x += car.vx;
+      car.y += car.vy;
+
+      // Terrain Collision & Slope Alignment
+      const groundY = getTerrainHeight(car.x);
+      const nextGroundY = getTerrainHeight(car.x + 10);
+      const slopeAngle = Math.atan2(nextGroundY - groundY, 10);
+
+      if (car.y + car.height / 2 >= groundY) {
+        // Calculate impact force based on vertical velocity
+        const impactForce = Math.abs(car.vy);
+
+        if (impactForce > 7) {
+          const damage = Math.floor((impactForce - 6) * 4.5);
+          car.health = Math.max(0, car.health - damage);
+          car.crumpleTop = Math.min(10, car.crumpleTop + damage * 0.15);
+          car.crumpleFront = Math.min(18, car.crumpleFront + damage * 0.25);
+          spawnCrashParticles(car.x, groundY, damage * 2);
+
+          if (car.health === 0) car.isWrecked = true;
+        }
+
+        // Keep car on road & bounce slightly on hard hits
+        car.y = groundY - car.height / 2;
+        car.vy = impactForce > 8 ? -car.vy * 0.3 : 0;
+        car.angle = slopeAngle;
+
+        // Apply slope gravity acceleration
+        car.vx += Math.sin(slopeAngle) * 0.35;
+        // Ground friction
+        car.vx *= 0.985;
+      } else {
+        // Slowly rotate nose down in mid-air
+        car.angle += 0.015;
+      }
+
+      // Update Debris Particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.vy += 0.3;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+
+      // Update HUD
+      const speedKmh = Math.round(Math.abs(car.vx) * 8);
+      statsEl.innerHTML = `Speed: ${speedKmh} km/h | Integrity: ${car.health}% ${car.isWrecked ? '<b style="color:#ef4444;">(WRECKED - Press R)</b>' : ''}`;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Camera follows the car
+      const camX = car.x - canvas.width * 0.25;
+      const camY = car.y - canvas.height * 0.5;
+
+      ctx.save();
+      ctx.translate(-camX, -camY);
+
+      // Draw Mountain Terrain
+      ctx.beginPath();
+      ctx.moveTo(camX, camY + canvas.height);
+      for (let screenX = 0; screenX <= canvas.width + 20; screenX += 10) {
+        const worldX = camX + screenX;
+        ctx.lineTo(worldX, getTerrainHeight(worldX));
+      }
+      ctx.lineTo(camX + canvas.width + 20, camY + canvas.height);
+      ctx.closePath();
+      ctx.fillStyle = '#334155';
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#94a3b8';
+      ctx.stroke();
+
+      // Draw Car (with visual deformation based on crash damage)
+      ctx.save();
+      ctx.translate(car.x, car.y);
+      ctx.rotate(car.angle);
+
+      const w = car.width - car.crumpleFront;
+      const h = car.height - car.crumpleTop;
+
+      // Car Chassis
+      ctx.fillStyle = car.isWrecked ? '#64748b' : '#ef4444';
+      ctx.fillRect(-w / 2, -h / 2, w, h);
+
+      // Cabin Roof
+      ctx.fillStyle = '#93c5fd';
+      ctx.fillRect(-w * 0.25, -h / 2 - (8 - car.crumpleTop * 0.5), w * 0.45, 8 - car.crumpleTop * 0.5);
+
+      // Wheels
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(-w * 0.3, h / 2, 7, 0, Math.PI * 2);
+      ctx.arc(w * 0.3, h / 2, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Draw Crash Particles
+      particles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, 4, 4);
+      });
+
+      ctx.restore();
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    resetCar();
+    loop();
+  </script>
+</body>
+</html>
