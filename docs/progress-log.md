@@ -48,3 +48,9 @@ Newest entries at the bottom. Claude adds one at the end of every session.
 - **Sarosh's idea:** after you shoot, you play goalie against their shooter. The mouse moves the glove, SPACE is the butterfly, the blocker is automatic, and there's an option for first person.
 - **Built:** Real back-and-forth shootout: you shoot, then the computer's shooter (red/white/blue #21) skates in on YOUR goalie (blue/orange #35) and picks a move and a spot. Their shots are a bit slower. Mouse = glove (catch it for a GLOVE SAVE), hold SPACE = butterfly, blocker moves by itself. Menu option: 🎥 Goalie behind view or 👀 first person. The tracker now uses real results for both teams, with sudden death.
 - **Learned:** Teams can swap uniforms by repainting materials (a list of "kit change" functions).
+
+## 2026-11-24 — 5-on-5 hockey!
+- **Sarosh's feedback:** wants a real hockey game: 5 on 5, not just a shootout, and more realistic.
+- **Built:** `hockey.html` — a full game: 5 skaters + a goalie per team (blue/orange vs red/navy), all real 3D people from the Mixamo model in our gear. Faceoffs, passing (E / right click), shooting (click; hold for a slap shot), poke and body checks (SPACE), switching players (Q), computer teammates and opponents who carry, pass and shoot, goalies who make saves, rebounds and freeze the puck, boards, both nets, 3 periods of 4 minutes, overtime, TV scoreboard, shots on goal, TV camera or behind-the-player camera (C).
+- **Code:** the arena/players/sounds moved into `engine.js`, shared by the shootout (`index.html` + `game.js`) and 5-on-5 (`hockey.html` + `hockey.js`).
+- **Also asked:** Meta Quest 3 + Unity. Explained options (see chat).

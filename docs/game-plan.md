@@ -36,7 +36,9 @@ A **hockey shootout** game with real-life shootout moves. The shooter skates in 
 - [x] Crowd noise that roars on goals
 - [x] Start screen with move + shooting-mode choice, winner screen
 - [x] Play goalie against the other team (mouse = glove, SPACE = butterfly, first-person option)
+- [x] 5-on-5 game (hockey.html)
 - [ ] Team names
+- [ ] VR on Meta Quest 3 (WebXR in the browser, or a Unity rebuild on the Mac)
 - [ ] Publish online (GitHub Pages or itch.io) — ask a grown-up first
 - [ ] Sarosh's own ideas: ...
 

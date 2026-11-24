@@ -33,6 +33,7 @@ This project's memory file. Claude reads it at the start of every session in thi
   so the game works offline and by double-clicking `index.html`. Don't switch to ES modules: they don't load from a
   double-clicked file.
 - `index.html` holds the page, menu and scoreboard. `game.js` holds the game code.
+- Sarosh wants it to look like a real hockey game, and is tired of hearing it looks great when it doesn't. Be honest about what still looks fake.
 - Sarosh wants it to look like a real hockey game. Keep the quality high: lights, shadows, shiny ice, detailed players.
 - Keep code readable for a kid: clear names (`puckSpeed`, not `ps`), short functions, a comment above each part.
 
@@ -41,8 +42,9 @@ This project's memory file. Claude reads it at the start of every session in thi
 - On the family Mac: `/Users/family/Documents/github/puppet_hockey_game`
 
 ## Project files
-- `index.html` — the web page (menu, scoreboard)
-- `game.js` — the game code (3D world, players, rules)
+- `index.html` + `game.js` — the SHOOTOUT game
+- `hockey.html` + `hockey.js` — the 5-ON-5 game
+- `engine.js` — shared by both: arena, ice, nets, players and gear, sounds, glow
 - `lib/` — the three.js 3D engine and the glTF model loader (don't edit)
 - `models/` — the 3D player from Mixamo: the original `.fbx` downloads, `player.glb` (cleaned, small) and
   `player.js` (the same data as text, so a double-clicked `index.html` can load it). See `tools/README.md`.
