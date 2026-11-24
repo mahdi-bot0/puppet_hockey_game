@@ -145,16 +145,21 @@ func make_ice() -> void:
 	bar.call(-BLUE_LINE, 0.3, blue)
 	bar.call(GOAL_LINE, 0.05, red)
 	bar.call(-GOAL_LINE, 0.05, red)
+	# circles: walk around the circle instead of checking every dot (much faster!)
 	var ring := func(cx: float, cz: float, radius: float, thick: float, col: Color, filled: bool) -> void:
 		var c: Vector2 = to_px.call(cx, cz)
 		var rp := radius * px
-		for y in range(int(c.y - rp - 2), int(c.y + rp + 2)):
-			for x in range(int(c.x - rp - 2), int(c.x + rp + 2)):
-				if x < 0 or y < 0 or x >= w or y >= h:
-					continue
-				var d := Vector2(x, y).distance_to(c)
-				if (filled and d <= rp) or (not filled and abs(d - rp) <= thick * px / 2):
-					img.set_pixel(x, y, col)
+		if filled:
+			for r in range(int(rp) + 1):
+				for i in range(int(TAU * max(r, 1)) + 1):
+					var a := float(i) / max(r, 1)
+					img.set_pixel(clampi(int(c.x + cos(a) * r), 0, w - 1), clampi(int(c.y + sin(a) * r), 0, h - 1), col)
+		else:
+			var half := int(max(1.0, thick * px / 2))
+			for i in range(int(TAU * rp * 2)):
+				var a := float(i) / (rp * 2)
+				var p := Vector2(c.x + cos(a) * rp, c.y + sin(a) * rp)
+				img.fill_rect(Rect2i(int(p.x) - half, int(p.y) - half, half * 2, half * 2), col)
 	ring.call(0.0, 0.0, 4.57, 0.05, blue, false)
 	ring.call(0.0, 0.0, 0.15, 0.0, blue, true)
 	for end in [-1, 1]:
@@ -166,7 +171,7 @@ func make_ice() -> void:
 	# skate scratches
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
-	for i in range(2500):
+	for i in range(1200):
 		var p := Vector2(rng.randf() * w, rng.randf() * h)
 		var a := rng.randf() * TAU
 		for s in range(30):
