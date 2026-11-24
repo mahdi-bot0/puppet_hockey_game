@@ -151,8 +151,8 @@ func make_ice() -> void:
 		var rp := radius * px
 		if filled:
 			for r in range(int(rp) + 1):
-				for i in range(int(TAU * max(r, 1)) + 1):
-					var a := float(i) / max(r, 1)
+				for i in range(int(TAU * maxi(r, 1)) + 1):
+					var a := float(i) / float(maxi(r, 1))
 					img.set_pixel(clampi(int(c.x + cos(a) * r), 0, w - 1), clampi(int(c.y + sin(a) * r), 0, h - 1), col)
 		else:
 			var half := int(max(1.0, thick * px / 2))
