@@ -22,7 +22,7 @@ const TEAM_STRIPE := Color("#f47d30")   # orange
 const SKATE_SPEED := 8.0        # meters per second
 const SPRINT_SPEED := 10.5
 const SHOT_SPEED := 30.0
-const FANCY_LIGHTING := true    # bouncing light + reflections. Set to false if the game is slow on your Mac.
+const FANCY_LIGHTING := false   # bouncing light + reflections. Needs a gaming graphics card! (It crashed Sarosh's Mac.)
 
 var player: Node3D              # the 3D person
 var anim: AnimationPlayer
@@ -61,8 +61,8 @@ func make_environment() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES        # movie-like colors
 	env.tonemap_exposure = 1.0
 	env.ssr_enabled = FANCY_LIGHTING                       # the ice reflects the players and boards!
-	env.ssr_max_steps = 96
-	env.ssao_enabled = true                                # soft dark shadows in corners
+	env.ssr_max_steps = 32
+	env.ssao_enabled = FANCY_LIGHTING                      # soft dark shadows in corners
 	env.ssil_enabled = FANCY_LIGHTING                      # light bounces off nearby things
 	env.sdfgi_enabled = FANCY_LIGHTING                     # light bounces around the whole arena
 	env.glow_enabled = true                                # bright lights glow
@@ -87,7 +87,7 @@ func make_lights() -> void:
 	sun.light_energy = 1.4
 	sun.light_color = Color("#fff6ea")
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 60.0
+	sun.directional_shadow_max_distance = 40.0
 	add_child(sun)
 	# rows of bright lamps over the ice
 	for i in range(-2, 3):
