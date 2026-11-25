@@ -57,7 +57,7 @@ func make_environment() -> void:
 	env.background_color = Color("#07090d")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("#b8c6d8")
-	env.ambient_light_energy = 0.35
+	env.ambient_light_energy = 0.7
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES        # movie-like colors
 	env.tonemap_exposure = 1.0
 	env.ssr_enabled = FANCY_LIGHTING                       # the ice reflects the players and boards!
@@ -84,7 +84,7 @@ func make_environment() -> void:
 func make_lights() -> void:
 	var sun := DirectionalLight3D.new()                    # the main roof lights
 	sun.rotation_degrees = Vector3(-70, 25, 0)
-	sun.light_energy = 1.4
+	sun.light_energy = 0.9
 	sun.light_color = Color("#fff6ea")
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 40.0
@@ -95,7 +95,7 @@ func make_lights() -> void:
 			var lamp := OmniLight3D.new()
 			lamp.position = Vector3(j * 7.0, 14.0, i * 12.0)
 			lamp.omni_range = 30.0
-			lamp.light_energy = 2.0
+			lamp.light_energy = 0.5
 			lamp.light_color = Color("#fff8ee")
 			add_child(lamp)
 			var bulb := MeshInstance3D.new()                # the glowing panel you can see
@@ -109,6 +109,7 @@ func make_lights() -> void:
 			m.albedo_color = Color.WHITE
 			bulb.material_override = m
 			bulb.position = lamp.position + Vector3(0, 0.5, 0)
+			bulb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF   # (its shadow made gray boxes on the ice)
 			add_child(bulb)
 
 
@@ -133,7 +134,7 @@ func make_ice() -> void:
 	var w := int(RINK_WIDTH * px)
 	var h := int(RINK_LENGTH * px)
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	img.fill(Color("#eef4f8"))
+	img.fill(Color("#dfe7ee"))
 	var red := Color("#c8102e")
 	var blue := Color("#0b3fa8")
 	var to_px := func(x: float, z: float) -> Vector2: return Vector2((x + RINK_WIDTH / 2) * px, (z + RINK_LENGTH / 2) * px)
@@ -197,7 +198,7 @@ func make_ice() -> void:
 	var m := StandardMaterial3D.new()
 	m.albedo_texture = tex
 	m.roughness = 0.08                 # very smooth = shiny
-	m.metallic_specular = 0.7
+	m.metallic_specular = 0.5
 	m.clearcoat_enabled = true         # a wet, glossy layer on top
 	m.clearcoat = 1.0
 	m.clearcoat_roughness = 0.03
